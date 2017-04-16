@@ -16,6 +16,19 @@ public class RedSanitario : IExternalCommand
 
         Transaction trans = new Transaction(doc);
         trans.Start("Lab");
+        
+        /*
+        Family columnFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Family)))
+            .Cast<Family>()
+            .Where(e => e.Name.Equals("M_Concrete-Rectangular-Column"))
+            .FirstOrDefault();
+
+        if (columnFamily == null)
+        {
+            doc.LoadFamily("C:\\GitHub\\WallsSetup\\M_Concrete-Rectangular-Column.rfa", out columnFamily);
+        }
+        */
 
         IList<View> floorPlans = new FilteredElementCollector(doc)
             .WherePasses(new ElementClassFilter(typeof(View)))
