@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Command">    
+    <Assembly>
+      C:\GitHub\Red-Sanitario\Red-Sanitario.dll
+    </Assembly>
+    <ClientId>a6d5f51e-22b4-11e7-93ae-92361f002671</ClientId>
+    <FullClassName>RedSanitario</FullClassName>
+    <Text>Red Sanitario</Text>
+    <VendorId>ADSK</VendorId>
+    <VisibilityMode>AlwaysVisible</VisibilityMode>
+  </AddIn>
+</RevitAddIns>
