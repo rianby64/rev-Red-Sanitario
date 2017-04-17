@@ -16,20 +16,52 @@ public class RedSanitario : IExternalCommand
 
         Transaction trans = new Transaction(doc);
         trans.Start("Lab");
-        
-        /*
-        Family columnFamily = new FilteredElementCollector(doc)
-            .WherePasses(new ElementClassFilter(typeof(Family)))
-            .Cast<Family>()
-            .Where(e => e.Name.Equals("M_Concrete-Rectangular-Column"))
-            .FirstOrDefault();
 
+        /*
         if (columnFamily == null)
         {
             doc.LoadFamily("C:\\GitHub\\WallsSetup\\M_Concrete-Rectangular-Column.rfa", out columnFamily);
         }
         */
+        Family sifonFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Family)))
+            .Cast<Family>()
+            .Where(e => e.Name.Equals("sifon"))
+            .FirstOrDefault();
+        
+        FamilySymbol sifonSymbol = new FilteredElementCollector(doc)
+            .WherePasses(new FamilySymbolFilter(sifonFamily.Id))
+            .Cast<FamilySymbol>()
+            .Where(e => e.Name.Equals("sifon 3x2"))
+            .FirstOrDefault();
 
+        CurveElement guia = new FilteredElementCollector(doc)
+            .WherePasses(new CurveElementFilter(CurveElementType.DetailCurve))
+            .Cast<CurveElement>()
+            .Where(e => e.GeometryCurve.GetType() == typeof(Line))
+            .FirstOrDefault();
+
+        TextElement bajante = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(TextElement)))
+            .Cast<TextElement>()
+            .Where(e => e.Text.Equals("bajante"))
+            .FirstOrDefault();
+
+        IList<FamilyInstance> sifones = new FilteredElementCollector(doc)
+            .WherePasses(new FamilyInstanceFilter(doc, sifonSymbol.Id))
+            .Cast<FamilyInstance>().ToList();
+
+        XYZ s0 = guia.GeometryCurve.GetEndPoint(0);
+        XYZ s1 = guia.GeometryCurve.GetEndPoint(1);
+
+        foreach (FamilyInstance sifon in sifones) {
+            XYZ m = ((LocationPoint)sifon.Location).Point;
+
+            // Aqui ponemos el vector entre m contra (s0, s1)
+        }
+
+        /*
+        // Esto de aqui abajo duplica las vistas y las pone como "Red Sanitaria"
         IList<View> floorPlans = new FilteredElementCollector(doc)
             .WherePasses(new ElementClassFilter(typeof(View)))
             .Cast<View>()
@@ -42,6 +74,7 @@ public class RedSanitario : IExternalCommand
             sanitarioPlan.Name = floorPlan.Name + " Red Sanitaria";
             sanitarioPlan.Discipline = ViewDiscipline.Plumbing;
         }
+        */
 
         trans.Commit();
         return Result.Succeeded;
