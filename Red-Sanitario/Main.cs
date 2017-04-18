@@ -1,4 +1,5 @@
-﻿using Autodesk.Revit.DB;
+﻿using System;
+using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.Attributes;
 using System.Linq;
@@ -64,21 +65,23 @@ public class RedSanitario : IExternalCommand
 
         XYZ s0 = guia.GeometryCurve.GetEndPoint(0);
         XYZ s1 = guia.GeometryCurve.GetEndPoint(1);
+        double m = (s0.Y - s1.Y) / (s0.X - s1.X);
+        double b = s1.Y - (m * s1.X);
+
+        Pipe.Create(doc, systemTypes.Id, pvc.Id, sifones[0].LevelId, s0, s1);
 
         foreach (FamilyInstance sifon in sifones) {
             XYZ p = ((LocationPoint)sifon.Location).Point;
+            XYZ p0 = new XYZ(p.X, p.Y, s0.Z);
 
-            // Aqui ponemos el vector entre m contra (s0, s1)
-            double m = (s0.Y - s1.Y) / (s0.X - s1.X);
-            double b = s1.Y - (m * s1.X);
-            double p1x = (p.X + (m * (p.Y - b))) / (1 + (m * m));
-            double p1y = (m * p1x) + b;
+            XYZ v = s1 - s0;
+            XYZ z = (v.CrossProduct(p0 - s0)).Normalize();
+            XYZ w = (z.CrossProduct(v)).Normalize();
+            double alfa = v.AngleTo(p0 - s0);
+            double d = p0.DistanceTo(s0) * Math.Sin(alfa);
+            XYZ a = (d * w) + p0;
 
-            XYZ p1 = new XYZ(p1x, p1y, s1.Z);
-            XYZ p0 = new XYZ(p.X, p.Y, s1.Z);
-            Line result = Line.CreateBound(p1, p0);
-            
-            Pipe.Create(doc, systemTypes.Id, pvc.Id, sifon.LevelId, p0, p1);
+            Pipe.Create(doc, systemTypes.Id, pvc.Id, sifon.LevelId, p0, a);
         }
 
         /*
