@@ -79,8 +79,9 @@ public class RedSanitario : IExternalCommand
             XYZ w = z.CrossProduct(v).Normalize();
             double d = w.DotProduct(p0 - s0);
             XYZ a = p0 - (d * w);
+            XYZ offset = (Math.Tan(Math.PI * 0.25) * d * (s0 - a).Normalize()) + a;
 
-            Pipe.Create(doc, systemTypes.Id, pvc.Id, sifon.LevelId, p0, a);
+            Pipe.Create(doc, systemTypes.Id, pvc.Id, sifon.LevelId, p0, offset);
         }
 
         /*
