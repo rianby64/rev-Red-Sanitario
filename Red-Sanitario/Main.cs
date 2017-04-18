@@ -75,11 +75,10 @@ public class RedSanitario : IExternalCommand
             XYZ p0 = new XYZ(p.X, p.Y, s0.Z);
 
             XYZ v = s1 - s0;
-            XYZ z = (v.CrossProduct(p0 - s0)).Normalize();
-            XYZ w = (z.CrossProduct(v)).Normalize();
-            double alfa = v.AngleTo(p0 - s0);
-            double d = p0.DistanceTo(s0) * Math.Sin(alfa);
-            XYZ a = (d * w) + p0;
+            XYZ z = v.CrossProduct(p0 - s0).Normalize();
+            XYZ w = z.CrossProduct(v).Normalize();
+            double d = w.DotProduct(p0 - s0);
+            XYZ a = p0 - (d * w);
 
             Pipe.Create(doc, systemTypes.Id, pvc.Id, sifon.LevelId, p0, a);
         }
