@@ -5,6 +5,9 @@ using Autodesk.Revit.Attributes;
 using System.Linq;
 using System.Collections.Generic;
 using Autodesk.Revit.DB.Plumbing;
+using Autodesk.Revit.UI.Selection;
+using Autodesk.Revit.DB.Mechanical;
+using StructuralType = Autodesk.Revit.DB.Structure.StructuralType;
 
 [TransactionAttribute(TransactionMode.Manual)]
 [RegenerationAttribute(RegenerationOption.Manual)]
@@ -19,86 +22,48 @@ public class RedSanitario : IExternalCommand
         Transaction trans = new Transaction(doc);
         trans.Start("Lab");
 
-        /*
-        if (columnFamily == null)
-        {
-            doc.LoadFamily("C:\\GitHub\\WallsSetup\\M_Concrete-Rectangular-Column.rfa", out columnFamily);
-        }
-        */
-        Family sifonFamily = new FilteredElementCollector(doc)
-            .WherePasses(new ElementClassFilter(typeof(Family)))
-            .Cast<Family>()
-            .Where(e => e.Name.Equals("sifon"))
-            .FirstOrDefault();
-        
-        FamilySymbol sifonSymbol = new FilteredElementCollector(doc)
-            .WherePasses(new FamilySymbolFilter(sifonFamily.Id))
+        FamilySymbol accesorioSymbol = new FilteredElementCollector(doc)
+            .OfClass(typeof(FamilySymbol))
+            .OfCategory(BuiltInCategory.OST_PipeFitting)
             .Cast<FamilySymbol>()
-            .Where(e => e.Name.Equals("sifon 3x2"))
+            .Where<FamilySymbol>(e => e.Family.Name.Contains("Tee - Plain - PVC-C"))
             .FirstOrDefault();
 
-        CurveElement guia = new FilteredElementCollector(doc)
-            .WherePasses(new CurveElementFilter(CurveElementType.DetailCurve))
-            .Cast<CurveElement>()
-            .Where(e => e.GeometryCurve.GetType() == typeof(Line))
+        FamilyInstance mytee = new FilteredElementCollector(doc)
+            .WherePasses(new FamilyInstanceFilter(doc, accesorioSymbol.Id))
+            .Cast<FamilyInstance>()
             .FirstOrDefault();
 
-        TextElement bajante = new FilteredElementCollector(doc)
-            .WherePasses(new ElementClassFilter(typeof(TextElement)))
-            .Cast<TextElement>()
-            .Where(e => e.Text.Equals("bajante"))
-            .FirstOrDefault();
-
-        IList<FamilyInstance> sifones = new FilteredElementCollector(doc)
-            .WherePasses(new FamilyInstanceFilter(doc, sifonSymbol.Id))
-            .Cast<FamilyInstance>().ToList();
-        
-        Element pvc = new FilteredElementCollector(doc)
-            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeCurves))
-            .Where(e => e.Name.Equals("f pvc sanitaria 4"))
-            .FirstOrDefault();
-        
-        Element systemTypes = new FilteredElementCollector(doc)
-          .WherePasses(new ElementClassFilter(typeof(PipingSystemType)))
-          .Where(e => e.Name.Equals("Hydronic Return"))
-          .FirstOrDefault();
-
-        XYZ s0 = guia.GeometryCurve.GetEndPoint(0);
-        XYZ s1 = guia.GeometryCurve.GetEndPoint(1);
-        double m = (s0.Y - s1.Y) / (s0.X - s1.X);
-        double b = s1.Y - (m * s1.X);
-
-        Pipe.Create(doc, systemTypes.Id, pvc.Id, sifones[0].LevelId, s0, s1);
-
-        foreach (FamilyInstance sifon in sifones) {
-            XYZ p = ((LocationPoint)sifon.Location).Point;
-            XYZ p0 = new XYZ(p.X, p.Y, s0.Z);
-
-            XYZ v = s1 - s0;
-            XYZ z = v.CrossProduct(p0 - s0).Normalize();
-            XYZ w = z.CrossProduct(v).Normalize();
-            double d = w.DotProduct(p0 - s0);
-            XYZ a = p0 - (d * w);
-            XYZ offset = (Math.Tan(Math.PI * 0.25) * d * (s0 - a).Normalize()) + a;
-
-            Pipe.Create(doc, systemTypes.Id, pvc.Id, sifon.LevelId, p0, offset);
-        }
-
-        /*
-        // Esto de aqui abajo duplica las vistas y las pone como "Red Sanitaria"
-        IList<View> floorPlans = new FilteredElementCollector(doc)
-            .WherePasses(new ElementClassFilter(typeof(View)))
-            .Cast<View>()
-            .Where(e => e.ViewType.Equals(ViewType.FloorPlan) && e.Title.Contains("Floor Plan") && (!e.Name.Equals("Site")))
+        IList<Pipe> pvc = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Pipe)))
+            .Cast<Pipe>()
             .ToList();
+        
+        ConnectorManager cmpvc1 = pvc[0].ConnectorManager;
+        ConnectorManager cmpvc2 = pvc[1].ConnectorManager;
+        ConnectorManager cmpvc3 = pvc[2].ConnectorManager;
 
-        foreach (View floorPlan in floorPlans)
-        {
-            View sanitarioPlan = (View)doc.GetElement(floorPlan.Duplicate(ViewDuplicateOption.WithDetailing));
-            sanitarioPlan.Name = floorPlan.Name + " Red Sanitaria";
-            sanitarioPlan.Discipline = ViewDiscipline.Plumbing;
-        }
-        */
+        Connector pc11 = cmpvc1.Lookup(0);
+        Connector pc12 = cmpvc1.Lookup(1);
+
+        Connector pc21 = cmpvc2.Lookup(0);
+        Connector pc22 = cmpvc2.Lookup(1);
+
+        Connector pc31 = cmpvc3.Lookup(0);
+        Connector pc32 = cmpvc3.Lookup(1);
+        
+        ConnectorManager cmtee = mytee.MEPModel.ConnectorManager;
+        Connector tc1 = cmtee.Lookup(1);
+        Connector tc2 = cmtee.Lookup(2);
+        Connector tc3 = cmtee.Lookup(3);
+
+        mytee.LookupParameter("Angle").Set(135.0 * Math.PI / 180.0);
+        Parameter radius = mytee.LookupParameter("Nominal Radius");
+        radius.Set(pvc[0].Diameter / 2.0);
+        
+        tc1.ConnectTo(pc22);
+        tc2.ConnectTo(pc12);
+        tc3.ConnectTo(pc31);
 
         trans.Commit();
         return Result.Succeeded;
