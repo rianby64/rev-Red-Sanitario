@@ -37,12 +37,6 @@ public class RedSanitario : IExternalCommand
             .FirstOrDefault();
 
         FamilyInstance tee = doc.Create.NewFamilyInstance(offset, accesorioSymbol, StructuralType.NonStructural);
-        Line axis = Line.CreateBound(offset, offset + offset.CrossProduct(XYZ.BasisY));
-        ElementTransformUtils.RotateElement(doc, tee.Id, axis, Math.PI / 2.0);
-
-        tee.LookupParameter("Angle").Set(135.0 * Math.PI / 180.0);
-        Parameter radius = tee.LookupParameter("Nominal Radius");
-        radius.Set(p1.Diameter / 2.0);
 
         ConnectorManager cmpvc1 = p1.ConnectorManager;
         ConnectorManager cmpvc2 = p2.ConnectorManager;
@@ -59,8 +53,20 @@ public class RedSanitario : IExternalCommand
         ramas.Add(cmpvc3.Lookup(0));
         ramas.Add(cmpvc3.Lookup(1));
 
+
         ConnectorManager cmtee = tee.MEPModel.ConnectorManager;
         Connector tc1 = cmtee.Lookup(1);
+        Connector tc2 = cmtee.Lookup(2);
+        Connector tc3 = cmtee.Lookup(3);
+
+        double angle = (tc1.Origin - tc2.Origin).AngleTo(verticales[0].Origin - verticales[3].Origin);
+        Line axis = Line.CreateBound(offset, offset + offset.CrossProduct(XYZ.BasisY));
+        ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle);
+        
+        tee.LookupParameter("Angle").Set(3.0 * Math.PI / 4.0);
+        Parameter radius = tee.LookupParameter("Nominal Radius");
+        radius.Set(p1.Diameter / 2.0);
+        
         Connector pc1 = null;
         double minDist = 99999999;
         foreach(Connector w in verticales)
@@ -73,7 +79,6 @@ public class RedSanitario : IExternalCommand
             }
         }
 
-        Connector tc2 = cmtee.Lookup(2);
         Connector pc2 = null;
         minDist = 99999999;
         foreach (Connector w in verticales)
@@ -86,7 +91,6 @@ public class RedSanitario : IExternalCommand
             }
         }
 
-        Connector tc3 = cmtee.Lookup(3);
         Connector pc3 = null;
         minDist = 99999999;
         foreach (Connector w in ramas)
