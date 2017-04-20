@@ -48,28 +48,60 @@ public class RedSanitario : IExternalCommand
         ConnectorManager cmpvc2 = p2.ConnectorManager;
         ConnectorManager cmpvc3 = p3.ConnectorManager;
 
-        Connector pc11 = cmpvc1.Lookup(0);
-        Connector pc12 = cmpvc1.Lookup(1);
+        List<Connector> verticales = new List<Connector>();
+        verticales.Add(cmpvc1.Lookup(0));
+        verticales.Add(cmpvc1.Lookup(1));
 
-        Connector pc21 = cmpvc2.Lookup(0);
-        Connector pc22 = cmpvc2.Lookup(1);
+        verticales.Add(cmpvc2.Lookup(0));
+        verticales.Add(cmpvc2.Lookup(1));
 
-        Connector pc31 = cmpvc3.Lookup(0);
-        Connector pc32 = cmpvc3.Lookup(1);
+        List<Connector> ramas = new List<Connector>();
+        ramas.Add(cmpvc3.Lookup(0));
+        ramas.Add(cmpvc3.Lookup(1));
 
         ConnectorManager cmtee = tee.MEPModel.ConnectorManager;
         Connector tc1 = cmtee.Lookup(1);
+        Connector pc1 = null;
+        double minDist = 99999999;
+        foreach(Connector w in verticales)
+        {
+            double d = tc1.Origin.DistanceTo(w.Origin);
+            if (minDist > d)
+            {
+                minDist = d;
+                pc1 = w;
+            }
+        }
+
         Connector tc2 = cmtee.Lookup(2);
+        Connector pc2 = null;
+        minDist = 99999999;
+        foreach (Connector w in verticales)
+        {
+            double d = tc2.Origin.DistanceTo(w.Origin);
+            if (minDist > d)
+            {
+                minDist = d;
+                pc2 = w;
+            }
+        }
+
         Connector tc3 = cmtee.Lookup(3);
-        
+        Connector pc3 = null;
+        minDist = 99999999;
+        foreach (Connector w in ramas)
+        {
+            double d = tc3.Origin.DistanceTo(w.Origin);
+            if (minDist > d)
+            {
+                minDist = d;
+                pc3 = w;
+            }
+        }
 
-        tc1.ConnectTo(pc12);
-        tc2.ConnectTo(pc21);
-        tc3.ConnectTo(pc32);
-
-        double d1 = offset.DistanceTo(tc1.Origin);
-        double d2 = offset.DistanceTo(tc2.Origin);
-        double d3 = offset.DistanceTo(tc3.Origin);
+        tc1.ConnectTo(pc1);
+        tc2.ConnectTo(pc2);
+        tc3.ConnectTo(pc3);
     }
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
@@ -136,9 +168,7 @@ public class RedSanitario : IExternalCommand
             XYZ a = p0 - (d * w);
 
             XYZ offset = (Math.Tan(Math.PI * 0.25) * d * (s1 - a).Normalize()) + a;
-
             Pipe rama = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifon.LevelId, p0, offset - (0.16 * (offset - p0).Normalize()));
-
             uniones.Add(new UnionTuberia(rama, offset));
         }
         
@@ -165,8 +195,7 @@ public class RedSanitario : IExternalCommand
 
         foreach (UnionTuberia union in uniones)
         {
-            break;
-            //Connect3Pipes(doc, union.offset, union.inf, union.sup, union.rama);
+            Connect3Pipes(doc, union.offset, union.inf, union.sup, union.rama);
         }
 
         /*
