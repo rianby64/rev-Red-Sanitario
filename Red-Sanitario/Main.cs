@@ -9,10 +9,24 @@ using Autodesk.Revit.UI.Selection;
 using Autodesk.Revit.DB.Mechanical;
 using StructuralType = Autodesk.Revit.DB.Structure.StructuralType;
 
+
 [TransactionAttribute(TransactionMode.Manual)]
 [RegenerationAttribute(RegenerationOption.Manual)]
 public class RedSanitario : IExternalCommand
 {
+
+    class UnionTuberia
+    {
+        public Pipe rama;
+        public XYZ offset;
+        public Pipe sup;
+        public Pipe inf;
+        public UnionTuberia(Pipe rama, XYZ offset)
+        {
+            this.rama = rama;
+            this.offset = offset;
+        }
+    }
     void Connect3Pipes(Document doc, XYZ offset, Pipe p1, Pipe p2, Pipe p3)
     {
         FamilySymbol accesorioSymbol = new FilteredElementCollector(doc)
@@ -25,6 +39,10 @@ public class RedSanitario : IExternalCommand
         FamilyInstance tee = doc.Create.NewFamilyInstance(offset, accesorioSymbol, StructuralType.NonStructural);
         Line axis = Line.CreateBound(offset, offset + offset.CrossProduct(XYZ.BasisY));
         ElementTransformUtils.RotateElement(doc, tee.Id, axis, Math.PI / 2.0);
+
+        tee.LookupParameter("Angle").Set(135.0 * Math.PI / 180.0);
+        Parameter radius = tee.LookupParameter("Nominal Radius");
+        radius.Set(p1.Diameter / 2.0);
 
         ConnectorManager cmpvc1 = p1.ConnectorManager;
         ConnectorManager cmpvc2 = p2.ConnectorManager;
@@ -44,13 +62,14 @@ public class RedSanitario : IExternalCommand
         Connector tc2 = cmtee.Lookup(2);
         Connector tc3 = cmtee.Lookup(3);
         
-        tee.LookupParameter("Angle").Set(135.0 * Math.PI / 180.0);
-        Parameter radius = tee.LookupParameter("Nominal Radius");
-        radius.Set(p1.Diameter / 2.0);
 
         tc1.ConnectTo(pc12);
         tc2.ConnectTo(pc21);
         tc3.ConnectTo(pc32);
+
+        double d1 = offset.DistanceTo(tc1.Origin);
+        double d2 = offset.DistanceTo(tc2.Origin);
+        double d3 = offset.DistanceTo(tc3.Origin);
     }
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
@@ -98,13 +117,13 @@ public class RedSanitario : IExternalCommand
           .WherePasses(new ElementClassFilter(typeof(PipingSystemType)))
           .Where(e => e.Name.Equals("Hydronic Return"))
           .FirstOrDefault();
-
+        
         XYZ s0 = guia.GeometryCurve.GetEndPoint(0);
         XYZ s1 = guia.GeometryCurve.GetEndPoint(1);
         double m = (s0.Y - s1.Y) / (s0.X - s1.X);
         double b = s1.Y - (m * s1.X);
 
-
+        List<UnionTuberia> uniones = new List<UnionTuberia>();
         foreach (FamilyInstance sifon in sifones)
         {
             XYZ p = ((LocationPoint)sifon.Location).Point;
@@ -115,14 +134,39 @@ public class RedSanitario : IExternalCommand
             XYZ w = z.CrossProduct(v).Normalize();
             double d = w.DotProduct(p0 - s0);
             XYZ a = p0 - (d * w);
+
             XYZ offset = (Math.Tan(Math.PI * 0.25) * d * (s1 - a).Normalize()) + a;
 
-            Pipe sup = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifones[0].LevelId, s0, offset);
-            Pipe rama = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifon.LevelId, p0, offset);
-            Pipe inf = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifones[0].LevelId, offset, s1);
+            Pipe rama = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifon.LevelId, p0, offset - (0.16 * (offset - p0).Normalize()));
 
-            Connect3Pipes(doc, offset, sup, inf, rama);
+            uniones.Add(new UnionTuberia(rama, offset));
+        }
+        
+        XYZ inicio = s1;
+        XYZ fin;
+        UnionTuberia lastUnion = null;
+        foreach (UnionTuberia union in uniones) {
+            XYZ offset = union.offset;
+
+            fin = offset - (0.16 * (offset - inicio).Normalize());
+            Pipe pipe = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifones[0].LevelId, inicio, fin);
+            union.inf = pipe;
+
+            if (lastUnion != null)
+            {
+                lastUnion.sup = pipe;
+            }
+            lastUnion = union;
+            inicio = offset + (0.16 * (fin - inicio).Normalize());
+        }
+
+        UnionTuberia ultima = uniones.Last<UnionTuberia>();
+        ultima.sup = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifones[0].LevelId, lastUnion.offset - (0.16 * (lastUnion.offset - inicio).Normalize()), s0);
+
+        foreach (UnionTuberia union in uniones)
+        {
             break;
+            //Connect3Pipes(doc, union.offset, union.inf, union.sup, union.rama);
         }
 
         /*
@@ -139,7 +183,7 @@ public class RedSanitario : IExternalCommand
             sanitarioPlan.Discipline = ViewDiscipline.Plumbing;
         }
         */
-        
+
         trans.Commit();
         return Result.Succeeded;
     }
