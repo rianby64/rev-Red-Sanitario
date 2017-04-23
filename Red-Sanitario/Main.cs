@@ -58,19 +58,18 @@ public class RedSanitario : IExternalCommand
         Connector tc1 = cmtee.Lookup(1);
         Connector tc2 = cmtee.Lookup(2);
         Connector tc3 = cmtee.Lookup(3);
-
-
+        
         double angle = (tc2.Origin - tc1.Origin).AngleTo(verticales[3].Origin - verticales[0].Origin);
         Line t0 = Line.CreateBound(tc1.Origin, tc2.Origin);
         Line t1 = Line.CreateBound(verticales[3].Origin, verticales[0].Origin);
         Line t2 = Line.CreateBound(ramas[1].Origin, ramas[0].Origin);
-        double cp = t2.Direction.DotProduct(t0.Direction);
+        double cp = t2.Direction.DotProduct(t1.Direction.CrossProduct(XYZ.BasisZ));
 
         double angleBranch = (verticales[3].Origin - verticales[0].Origin).AngleTo(ramas[1].Origin - ramas[0].Origin);
         Parameter radius = tee.LookupParameter("Nominal Radius");
         radius.Set(p1.Diameter / 2.0);
 
-        if (cp < 0)
+        if (cp > 0)
         {
             tee.LookupParameter("Angle").Set(angleBranch);
             Line axis = Line.CreateBound(offset, offset + offset.CrossProduct(verticales[3].Origin - verticales[0].Origin));
