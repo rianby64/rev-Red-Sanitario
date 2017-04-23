@@ -80,7 +80,20 @@ public class RedSanitario : IExternalCommand
                 ElementTransformUtils.RotateElement(doc, tee.Id, axis, Math.PI);
             } else
             {
-                ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle);
+                if (Math.Abs(angle - angleBranch) < 0.001)
+                {
+                    ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle - Math.PI / 2);
+                } else
+                {
+                    if (Math.Abs(angle - Math.PI / 4.0) < 0.001)
+                    {
+                        ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle + Math.PI / 2);
+                    }
+                    else
+                    {
+                        ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle);
+                    }
+                }
             }
         } else
         {
