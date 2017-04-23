@@ -52,8 +52,7 @@ public class RedSanitario : IExternalCommand
         List<Connector> ramas = new List<Connector>();
         ramas.Add(cmpvc3.Lookup(0));
         ramas.Add(cmpvc3.Lookup(1));
-
-
+        
         ConnectorManager cmtee = tee.MEPModel.ConnectorManager;
         Connector tc1 = cmtee.Lookup(1);
         Connector tc2 = cmtee.Lookup(2);
@@ -73,7 +72,16 @@ public class RedSanitario : IExternalCommand
         {
             tee.LookupParameter("Angle").Set(angleBranch);
             Line axis = Line.CreateBound(offset, offset + offset.CrossProduct(verticales[3].Origin - verticales[0].Origin));
-            ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle);
+            if (Math.Abs(angle - Math.PI) < 0.001)
+            {
+
+            } else if (Math.Abs(angle) < 0.001)
+            {
+                ElementTransformUtils.RotateElement(doc, tee.Id, axis, Math.PI);
+            } else
+            {
+                ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle);
+            }
         } else
         {
             tee.LookupParameter("Angle").Set(angleBranch - Math.PI / 2.0);
