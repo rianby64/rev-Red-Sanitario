@@ -59,14 +59,29 @@ public class RedSanitario : IExternalCommand
         Connector tc2 = cmtee.Lookup(2);
         Connector tc3 = cmtee.Lookup(3);
 
-        double angle = (tc1.Origin - tc2.Origin).AngleTo(verticales[0].Origin - verticales[3].Origin);
-        Line axis = Line.CreateBound(offset, offset + offset.CrossProduct(XYZ.BasisY));
-        ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle);
-        
-        tee.LookupParameter("Angle").Set(3.0 * Math.PI / 4.0);
+
+        double angle = (tc2.Origin - tc1.Origin).AngleTo(verticales[3].Origin - verticales[0].Origin);
+        Line t0 = Line.CreateBound(tc1.Origin, tc2.Origin);
+        Line t1 = Line.CreateBound(verticales[3].Origin, verticales[0].Origin);
+        Line t2 = Line.CreateBound(ramas[1].Origin, ramas[0].Origin);
+        double cp = t2.Direction.DotProduct(t0.Direction);
+
+        double angleBranch = (verticales[3].Origin - verticales[0].Origin).AngleTo(ramas[1].Origin - ramas[0].Origin);
         Parameter radius = tee.LookupParameter("Nominal Radius");
         radius.Set(p1.Diameter / 2.0);
-        
+
+        if (cp < 0)
+        {
+            tee.LookupParameter("Angle").Set(angleBranch);
+            Line axis = Line.CreateBound(offset, offset + offset.CrossProduct(verticales[3].Origin - verticales[0].Origin));
+            ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle);
+        } else
+        {
+            tee.LookupParameter("Angle").Set(angleBranch - Math.PI / 2.0);
+            Line axis = Line.CreateBound(offset, offset + offset.CrossProduct(verticales[0].Origin - verticales[3].Origin));
+            ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle);
+        }
+
         Connector pc1 = null;
         double minDist = 99999999;
         foreach(Connector w in verticales)
@@ -171,7 +186,7 @@ public class RedSanitario : IExternalCommand
             double d = w.DotProduct(p0 - s0);
             XYZ a = p0 - (d * w);
 
-            XYZ offset = (Math.Tan(Math.PI * 0.25) * d * (s1 - a).Normalize()) + a;
+            XYZ offset = (Math.Tan(Math.PI / 4.0) * d * (s1 - a).Normalize()) + a;
             Pipe rama = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifon.LevelId, p0, offset - (0.16 * (offset - p0).Normalize()));
             uniones.Add(new UnionTuberia(rama, offset));
         }
