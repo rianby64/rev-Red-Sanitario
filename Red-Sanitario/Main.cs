@@ -140,17 +140,17 @@ public class RedSanitario : IExternalCommand
             .Where(e => e.Name.Equals("sifon 3x2"))
             .FirstOrDefault();
 
-        CurveElement guia = new FilteredElementCollector(doc)
+        List<CurveElement> guias = new FilteredElementCollector(doc)
             .WherePasses(new CurveElementFilter(CurveElementType.DetailCurve))
             .Cast<CurveElement>()
             .Where(e => e.GeometryCurve.GetType() == typeof(Line))
-            .FirstOrDefault();
+            .ToList();
 
-        TextElement bajante = new FilteredElementCollector(doc)
+        List<TextElement> bajantes = new FilteredElementCollector(doc)
             .WherePasses(new ElementClassFilter(typeof(TextElement)))
             .Cast<TextElement>()
             .Where(e => e.Text.Equals("bajante"))
-            .FirstOrDefault();
+            .ToList();
 
         IList<FamilyInstance> sifones = new FilteredElementCollector(doc)
             .WherePasses(new FamilyInstanceFilter(doc, sifonSymbol.Id))
@@ -166,16 +166,19 @@ public class RedSanitario : IExternalCommand
           .Where(e => e.Name.Equals("Hydronic Return"))
           .FirstOrDefault();
         
-        XYZ s0 = guia.GeometryCurve.GetEndPoint(0);
-        XYZ s1 = guia.GeometryCurve.GetEndPoint(1);
+        XYZ s0 = guias[0].GeometryCurve.GetEndPoint(0);
+        XYZ s1 = guias[0].GeometryCurve.GetEndPoint(1);
         double m = (s0.Y - s1.Y) / (s0.X - s1.X);
         double b = s1.Y - (m * s1.X);
 
         Boolean bajanteArriba = true;
-
+        
         List<UnionTuberia> uniones = new List<UnionTuberia>();
+        int iii = 0;
         foreach (FamilyInstance sifon in sifones)
         {
+            if (iii == 3) break;
+            iii++;
             XYZ p = ((LocationPoint)sifon.Location).Point;
             XYZ p0 = new XYZ(p.X, p.Y, s0.Z);
 
