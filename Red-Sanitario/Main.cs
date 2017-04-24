@@ -68,37 +68,14 @@ public class RedSanitario : IExternalCommand
         Parameter radius = tee.LookupParameter("Nominal Radius");
         radius.Set(p1.Diameter / 2.0);
 
+        Line axis = Line.CreateBound(offset, offset + offset.CrossProduct(verticales[0].Origin - verticales[3].Origin));
         if (cp > 0)
         {
             tee.LookupParameter("Angle").Set(angleBranch);
-            Line axis = Line.CreateBound(offset, offset + offset.CrossProduct(verticales[3].Origin - verticales[0].Origin));
-            if (Math.Abs(angle - Math.PI) < 0.001)
-            {
-
-            } else if (Math.Abs(angle) < 0.001)
-            {
-                ElementTransformUtils.RotateElement(doc, tee.Id, axis, Math.PI);
-            } else
-            {
-                if (Math.Abs(angle - angleBranch) < 0.001)
-                {
-                    ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle - Math.PI / 2);
-                } else
-                {
-                    if (Math.Abs(angle - Math.PI / 4.0) < 0.001)
-                    {
-                        ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle + Math.PI / 2);
-                    }
-                    else
-                    {
-                        ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle);
-                    }
-                }
-            }
+            ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle + Math.PI);
         } else
         {
             tee.LookupParameter("Angle").Set(angleBranch - Math.PI / 2.0);
-            Line axis = Line.CreateBound(offset, offset + offset.CrossProduct(verticales[0].Origin - verticales[3].Origin));
             ElementTransformUtils.RotateElement(doc, tee.Id, axis, angle);
         }
 
