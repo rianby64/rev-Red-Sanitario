@@ -171,6 +171,8 @@ public class RedSanitario : IExternalCommand
         double m = (s0.Y - s1.Y) / (s0.X - s1.X);
         double b = s1.Y - (m * s1.X);
 
+        Boolean bajanteArriba = true;
+
         List<UnionTuberia> uniones = new List<UnionTuberia>();
         foreach (FamilyInstance sifon in sifones)
         {
@@ -183,7 +185,15 @@ public class RedSanitario : IExternalCommand
             double d = w.DotProduct(p0 - s0);
             XYZ a = p0 - (d * w);
 
-            XYZ offset = (Math.Tan(Math.PI / 4.0) * d * (s1 - a).Normalize()) + a;
+            XYZ offset;
+            if (bajanteArriba)
+            {
+                offset = (Math.Tan(Math.PI / 4.0) * d * (s0 - a).Normalize()) + a;
+            }
+            else
+            {
+                offset = (Math.Tan(Math.PI / 4.0) * d * (s1 - a).Normalize()) + a;
+            }
             Pipe rama = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifon.LevelId, p0, offset - (0.16 * (offset - p0).Normalize()));
             uniones.Add(new UnionTuberia(rama, offset));
         }
@@ -211,7 +221,14 @@ public class RedSanitario : IExternalCommand
 
         foreach (UnionTuberia union in uniones)
         {
-            Connect3Pipes(doc, union.offset, union.inf, union.sup, union.rama);
+            if (bajanteArriba)
+            {
+                Connect3Pipes(doc, union.offset, union.sup, union.inf, union.rama);
+            } else
+            {
+                Connect3Pipes(doc, union.offset, union.inf, union.sup, union.rama);
+            }
+            //
         }
 
         /*
