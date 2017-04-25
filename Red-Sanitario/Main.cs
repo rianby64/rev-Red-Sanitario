@@ -14,7 +14,12 @@ using StructuralType = Autodesk.Revit.DB.Structure.StructuralType;
 [RegenerationAttribute(RegenerationOption.Manual)]
 public class RedSanitario : IExternalCommand
 {
-
+    class UnidadCanalizacion
+    {
+        public CurveElement guia;
+        public XYZ bajante;
+        public List<FamilyInstance> sifones = new List<FamilyInstance>();
+    }
     class UnionTuberia
     {
         public Pipe rama;
@@ -165,6 +170,67 @@ public class RedSanitario : IExternalCommand
           .WherePasses(new ElementClassFilter(typeof(PipingSystemType)))
           .Where(e => e.Name.Equals("Hydronic Return"))
           .FirstOrDefault();
+
+        List<UnidadCanalizacion> unidadCanalizaciones = new List<UnidadCanalizacion>();
+        foreach (CurveElement guia in guias)
+        {
+            UnidadCanalizacion uc = new UnidadCanalizacion();
+            uc.guia = guia;
+            XYZ bajanteMasCercana = null;
+            double distanciaBajanteMasCercana = 99999999999;
+            foreach (TextNote bajante in bajantes)
+            {
+                double d = bajante.Coord.DistanceTo(guia.GeometryCurve.GetEndPoint(0));
+                if (distanciaBajanteMasCercana > d)
+                {
+                    distanciaBajanteMasCercana = d;
+                    bajanteMasCercana = bajante.Coord;
+                }
+            }
+            uc.bajante = bajanteMasCercana;
+
+            foreach (FamilyInstance sifon in sifones)
+            {
+                CurveElement guiaMasCercana = null;
+                double distanciaGuiaMasCercana = 999999999;
+                foreach (CurveElement guiaCercana in guias)
+                {
+                    XYZ s_0 = guiaCercana.GeometryCurve.GetEndPoint(0);
+                    XYZ s_1 = guiaCercana.GeometryCurve.GetEndPoint(1);
+
+                    XYZ p = ((LocationPoint)sifon.Location).Point;
+                    XYZ p0 = new XYZ(p.X, p.Y, s_1.Z);
+
+                    XYZ v = s_1 - s_0;
+                    XYZ z = v.CrossProduct(p0 - s_0).Normalize();
+                    XYZ w = z.CrossProduct(v).Normalize();
+                    double d = w.DotProduct(p0 - s_0);
+                    XYZ a = p0 - (d * w);
+                    double distanciaCabo0 = a.DistanceTo(s_0);
+                    double distanciaCabo1 = a.DistanceTo(s_1);
+                    double largor = s_0.DistanceTo(s_1);
+                    if (distanciaCabo0 <= largor && distanciaCabo1 <= largor)
+                    {
+                        d = w.DotProduct(p0 - s_0);
+                    } else
+                    {
+
+                    }
+
+                    if (distanciaGuiaMasCercana > d)
+                    {
+                        distanciaGuiaMasCercana = d;
+                        guiaMasCercana = guiaCercana;
+                    }
+                }
+
+                if (guiaMasCercana == guia)
+                {
+                    uc.sifones.Add(sifon);
+                }
+            }
+            unidadCanalizaciones.Add(uc);
+        }
         
         XYZ s0 = guias[0].GeometryCurve.GetEndPoint(0);
         XYZ s1 = guias[0].GeometryCurve.GetEndPoint(1);
@@ -172,12 +238,11 @@ public class RedSanitario : IExternalCommand
         double b = s1.Y - (m * s1.X);
 
         Boolean bajanteArriba = true;
-        
-        List<UnionTuberia> uniones = new List<UnionTuberia>();
         int iii = 0;
+        List<UnionTuberia> uniones = new List<UnionTuberia>();
         foreach (FamilyInstance sifon in sifones)
         {
-            if (iii == 3) break;
+            if (iii > 2) break;
             iii++;
             XYZ p = ((LocationPoint)sifon.Location).Point;
             XYZ p0 = new XYZ(p.X, p.Y, s0.Z);
