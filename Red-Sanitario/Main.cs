@@ -14,11 +14,21 @@ using StructuralType = Autodesk.Revit.DB.Structure.StructuralType;
 [RegenerationAttribute(RegenerationOption.Manual)]
 public class RedSanitario : IExternalCommand
 {
+    class ParSifonOffset
+    {
+        public FamilyInstance sifon;
+        public XYZ offset;
+        public ParSifonOffset(FamilyInstance sifon, XYZ offset)
+        {
+            this.sifon = sifon;
+            this.offset = offset;
+        }
+    }
     class UnidadCanalizacion
     {
         public CurveElement guia;
         public XYZ bajante;
-        public List<FamilyInstance> sifones = new List<FamilyInstance>();
+        public List<ParSifonOffset> pares = new List<ParSifonOffset>();
     }
     class UnionTuberia
     {
@@ -193,6 +203,7 @@ public class RedSanitario : IExternalCommand
             {
                 CurveElement guiaMasCercana = null;
                 double distanciaGuiaMasCercana = 999999999;
+                XYZ offsetMasCercano = null;
                 foreach (CurveElement guiaCercana in guias)
                 {
                     XYZ s_0 = guiaCercana.GeometryCurve.GetEndPoint(0);
@@ -221,82 +232,83 @@ public class RedSanitario : IExternalCommand
                     {
                         distanciaGuiaMasCercana = d;
                         guiaMasCercana = guiaCercana;
+                        offsetMasCercano = a;
                     }
                 }
 
                 if (guiaMasCercana == guia)
                 {
-                    uc.sifones.Add(sifon);
+                    uc.pares.Add(new ParSifonOffset(sifon, offsetMasCercano));
                 }
             }
             unidadCanalizaciones.Add(uc);
         }
-        
-        XYZ s0 = guias[0].GeometryCurve.GetEndPoint(0);
-        XYZ s1 = guias[0].GeometryCurve.GetEndPoint(1);
-        double m = (s0.Y - s1.Y) / (s0.X - s1.X);
-        double b = s1.Y - (m * s1.X);
 
-        Boolean bajanteArriba = true;
-        int iii = 0;
-        List<UnionTuberia> uniones = new List<UnionTuberia>();
-        foreach (FamilyInstance sifon in sifones)
+        foreach (UnidadCanalizacion unidad in unidadCanalizaciones)
         {
-            if (iii > 2) break;
-            iii++;
-            XYZ p = ((LocationPoint)sifon.Location).Point;
-            XYZ p0 = new XYZ(p.X, p.Y, s0.Z);
+            XYZ s0 = unidad.guia.GeometryCurve.GetEndPoint(0);
+            XYZ s1 = unidad.guia.GeometryCurve.GetEndPoint(1);
+            double m = (s0.Y - s1.Y) / (s0.X - s1.X);
+            double b = s1.Y - (m * s1.X);
 
-            XYZ v = s1 - s0;
-            XYZ z = v.CrossProduct(p0 - s0).Normalize();
-            XYZ w = z.CrossProduct(v).Normalize();
-            double d = w.DotProduct(p0 - s0);
-            XYZ a = p0 - (d * w);
+            Boolean bajanteArriba = true;
+            List<UnionTuberia> uniones = new List<UnionTuberia>();
+            foreach (ParSifonOffset par in unidad.pares)
+            {
+                FamilyInstance sifon = par.sifon;
+                XYZ p = ((LocationPoint)sifon.Location).Point;
+                XYZ p0 = new XYZ(p.X, p.Y, s0.Z);
 
-            XYZ offset;
-            if (bajanteArriba)
-            {
-                offset = (Math.Tan(Math.PI / 4.0) * d * (s0 - a).Normalize()) + a;
+                XYZ v = s1 - s0;
+                XYZ z = v.CrossProduct(p0 - s0).Normalize();
+                XYZ w = z.CrossProduct(v).Normalize();
+                double d = w.DotProduct(p0 - s0);
+                XYZ a = p0 - (d * w);
+
+                XYZ offset;
+                if (bajanteArriba)
+                {
+                    offset = (Math.Tan(Math.PI / 4.0) * d * (s0 - a).Normalize()) + a;
+                }
+                else
+                {
+                    offset = (Math.Tan(Math.PI / 4.0) * d * (s1 - a).Normalize()) + a;
+                }
+                Pipe rama = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifon.LevelId, p0, offset - (0.16 * (offset - p0).Normalize()));
+                uniones.Add(new UnionTuberia(rama, offset));
             }
-            else
-            {
-                offset = (Math.Tan(Math.PI / 4.0) * d * (s1 - a).Normalize()) + a;
-            }
-            Pipe rama = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifon.LevelId, p0, offset - (0.16 * (offset - p0).Normalize()));
-            uniones.Add(new UnionTuberia(rama, offset));
-        }
         
-        XYZ inicio = s1;
-        XYZ fin;
-        UnionTuberia lastUnion = null;
-        foreach (UnionTuberia union in uniones) {
-            XYZ offset = union.offset;
+            XYZ inicio = s1;
+            XYZ fin;
+            UnionTuberia lastUnion = null;
+            foreach (UnionTuberia union in uniones) {
+                XYZ offset = union.offset;
 
-            fin = offset - (0.16 * (offset - inicio).Normalize());
-            Pipe pipe = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifones[0].LevelId, inicio, fin);
-            union.inf = pipe;
+                fin = offset - (0.16 * (offset - inicio).Normalize());
+                Pipe pipe = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifones[0].LevelId, inicio, fin);
+                union.inf = pipe;
 
-            if (lastUnion != null)
-            {
-                lastUnion.sup = pipe;
+                if (lastUnion != null)
+                {
+                    lastUnion.sup = pipe;
+                }
+                lastUnion = union;
+                inicio = offset + (0.16 * (fin - inicio).Normalize());
             }
-            lastUnion = union;
-            inicio = offset + (0.16 * (fin - inicio).Normalize());
-        }
 
-        UnionTuberia ultima = uniones.Last<UnionTuberia>();
-        ultima.sup = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifones[0].LevelId, lastUnion.offset - (0.16 * (lastUnion.offset - inicio).Normalize()), s0);
+            UnionTuberia ultima = uniones.Last<UnionTuberia>();
+            ultima.sup = Pipe.Create(doc, systemTypes.Id, pvc.Id, sifones[0].LevelId, lastUnion.offset - (0.16 * (lastUnion.offset - inicio).Normalize()), s0);
 
-        foreach (UnionTuberia union in uniones)
-        {
-            if (bajanteArriba)
+            foreach (UnionTuberia union in uniones)
             {
-                Connect3Pipes(doc, union.offset, union.sup, union.inf, union.rama);
-            } else
-            {
-                Connect3Pipes(doc, union.offset, union.inf, union.sup, union.rama);
+                if (bajanteArriba)
+                {
+                    Connect3Pipes(doc, union.offset, union.sup, union.inf, union.rama);
+                } else
+                {
+                    Connect3Pipes(doc, union.offset, union.inf, union.sup, union.rama);
+                }
             }
-            //
         }
 
         /*
