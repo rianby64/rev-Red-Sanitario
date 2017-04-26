@@ -250,8 +250,16 @@ public class RedSanitario : IExternalCommand
             XYZ s1 = unidad.guia.GeometryCurve.GetEndPoint(1);
             double m = (s0.Y - s1.Y) / (s0.X - s1.X);
             double b = s1.Y - (m * s1.X);
-
+            
             Boolean bajanteArriba = true;
+            double s0bajante = unidad.bajante.DistanceTo(s0);
+            double s1bajante = unidad.bajante.DistanceTo(s1);
+
+            if (s1bajante < s0bajante)
+            {
+                bajanteArriba = false;
+            }
+
             List<UnionTuberia> uniones = new List<UnionTuberia>();
             foreach (ParSifonOffset par in unidad.pares)
             {
