@@ -133,6 +133,9 @@ public class RedSanitario : IExternalCommand
         tc1.ConnectTo(pc1);
         tc2.ConnectTo(pc2);
         tc3.ConnectTo(pc3);
+
+        radius = p3.LookupParameter("Diameter");
+        radius.Set(p3.Diameter / 2.0);
     }
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
