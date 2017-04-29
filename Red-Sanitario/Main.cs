@@ -137,6 +137,18 @@ public class RedSanitario : IExternalCommand
         radius = p3.LookupParameter("Diameter");
         radius.Set(p3.Diameter / 2.0);
     }
+    public class Tuberia
+    {
+        public XYZ start;
+        public XYZ end;
+        public Level level;
+        public Tuberia(XYZ start, XYZ end, Level level)
+        {
+            this.start = start;
+            this.end = end;
+            this.level = level;
+        }
+    }
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
         //Get application and document objects
@@ -146,6 +158,108 @@ public class RedSanitario : IExternalCommand
         Transaction trans = new Transaction(doc);
         trans.Start("Lab");
 
+        List<Tuberia> tuberias = new List<Tuberia>();
+        
+        Element pvc = new FilteredElementCollector(doc)
+            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeCurves))
+            .Where(e => e.Name.Equals("f pvc sanitaria 4"))
+            .FirstOrDefault();
+        Element systemTypes = new FilteredElementCollector(doc)
+          .WherePasses(new ElementClassFilter(typeof(PipingSystemType)))
+          .Where(e => e.Name.Equals("Hydronic Return"))
+          .FirstOrDefault();
+
+        List<CurveElement> guides = new FilteredElementCollector(doc)
+            .WherePasses(new CurveElementFilter(CurveElementType.DetailCurve))
+            .Cast<CurveElement>()
+            .Where(e => e.GeometryCurve.GetType() == typeof(Line))
+            .ToList();
+
+        List<Level> levels = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Level)))
+            .Cast<Level>()
+            .OrderBy(e => e.Elevation)
+            .ToList();
+
+        foreach (CurveElement guide in guides)
+        {
+            XYZ start = guide.GeometryCurve.GetEndPoint(0);
+            XYZ end = guide.GeometryCurve.GetEndPoint(1);
+            double h = (start.Z + end.Z) / 2.0 + 0.001;
+            Level currentLevel = levels[0];
+            double currentH = currentLevel.Elevation;
+            for (int i = 1; i < levels.Count; i++)
+            {
+                Level nextLevel = levels[i];
+                double nextH = nextLevel.Elevation;
+                if (currentH <= h && h <= nextH)
+                {
+                    break;
+                }
+                currentLevel = nextLevel;
+                currentH = nextLevel.Elevation;
+            }
+            tuberias.Add(new Tuberia(start, end, currentLevel));
+        }
+
+        double epsilon = 0.0001;
+        for (var i = 0; i < tuberias.Count; i++)
+        {
+            Tuberia currentTube = tuberias[i];
+            XYZ start = currentTube.start;
+            XYZ end = currentTube.end;
+
+            Tuberia lastTube = null;
+            foreach (Tuberia tubo in tuberias)
+            {
+                XYZ s0 = tubo.start;
+                XYZ s1 = tubo.end;
+                double d = s0.DistanceTo(s1);
+
+                XYZ v = (s0 - s1).CrossProduct(XYZ.BasisZ).Normalize();
+                double sv0 = v.DotProduct(start - s0);
+                double sv1 = v.DotProduct(start - s1);
+
+                double ds0 = start.DistanceTo(s0);
+                double ds1 = start.DistanceTo(s1);
+
+                double sv2 = v.DotProduct(end - s0);
+                double sv3 = v.DotProduct(end - s1);
+
+                double ds2 = end.DistanceTo(s0);
+                double ds3 = end.DistanceTo(s1);
+                
+                if ((Math.Abs(sv0 + sv1) < 0.01) && (ds0 < d) && (ds1 < d) && (ds0 * ds1 > epsilon))
+                {
+                    lastTube = tubo;
+                    tuberias.Add(new Tuberia(s0, start, tubo.level));
+                    tuberias.Add(new Tuberia(start, s1, tubo.level));
+                    i = -1;
+                    break;
+                }
+                if ((Math.Abs(sv2 + sv3) < 0.01) && (ds2 < d) && (ds3 < d) && (ds2 * ds3 > epsilon))
+                {
+                    lastTube = tubo;
+                    tuberias.Add(new Tuberia(end, s1, tubo.level));
+                    tuberias.Add(new Tuberia(s0, end, tubo.level));
+                    i = -1;
+                    break;
+                }
+            }
+            if (lastTube != null)
+            {
+                tuberias.Remove(lastTube);
+            }
+        }
+
+        foreach (Tuberia tubo in tuberias)
+        {
+            Pipe tubito = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, tubo.start, tubo.end);
+        }
+
+        trans.Commit();
+        return Result.Succeeded;
+        /*
         Family sifonFamily = new FilteredElementCollector(doc)
             .WherePasses(new ElementClassFilter(typeof(Family)))
             .Cast<Family>()
@@ -158,17 +272,21 @@ public class RedSanitario : IExternalCommand
             .Where(e => e.Name.Equals("sifon 3x2"))
             .FirstOrDefault();
 
-        List<CurveElement> guias = new FilteredElementCollector(doc)
-            .WherePasses(new CurveElementFilter(CurveElementType.DetailCurve))
-            .Cast<CurveElement>()
-            .Where(e => e.GeometryCurve.GetType() == typeof(Line))
-            .ToList();
+        Family bajanteSanitariaFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Family)))
+            .Cast<Family>()
+            .Where(e => e.Name.Equals("bajante sanitaria"))
+            .FirstOrDefault();
 
-        List<TextElement> bajantes = new FilteredElementCollector(doc)
-            .WherePasses(new ElementClassFilter(typeof(TextElement)))
-            .Cast<TextElement>()
-            .Where(e => e.Text.Equals("bajante"))
-            .ToList();
+        FamilySymbol bajanteSanitariaSymbol = new FilteredElementCollector(doc)
+            .WherePasses(new FamilySymbolFilter(bajanteSanitariaFamily.Id))
+            .Cast<FamilySymbol>()
+            .Where(e => e.Name.Equals("bajante sanitaria"))
+            .FirstOrDefault();
+
+        IList<FamilyInstance> bajantes = new FilteredElementCollector(doc)
+            .WherePasses(new FamilyInstanceFilter(doc, bajanteSanitariaSymbol.Id))
+            .Cast<FamilyInstance>().ToList();
 
         IList<FamilyInstance> sifones = new FilteredElementCollector(doc)
             .WherePasses(new FamilyInstanceFilter(doc, sifonSymbol.Id))
@@ -183,7 +301,9 @@ public class RedSanitario : IExternalCommand
           .WherePasses(new ElementClassFilter(typeof(PipingSystemType)))
           .Where(e => e.Name.Equals("Hydronic Return"))
           .FirstOrDefault();
+        
 
+        /*
         List<UnidadCanalizacion> unidadCanalizaciones = new List<UnidadCanalizacion>();
         foreach (CurveElement guia in guias)
         {
@@ -191,13 +311,13 @@ public class RedSanitario : IExternalCommand
             uc.guia = guia;
             XYZ bajanteMasCercana = null;
             double distanciaBajanteMasCercana = 99999999999;
-            foreach (TextNote bajante in bajantes)
+            foreach (FamilyInstance bajante in bajantes)
             {
-                double d = bajante.Coord.DistanceTo(guia.GeometryCurve.GetEndPoint(0));
+                double d = ((LocationPoint)bajante.Location).Point.DistanceTo(guia.GeometryCurve.GetEndPoint(0));
                 if (distanciaBajanteMasCercana > d)
                 {
                     distanciaBajanteMasCercana = d;
-                    bajanteMasCercana = bajante.Coord;
+                    bajanteMasCercana = ((LocationPoint)bajante.Location).Point;
                 }
             }
             uc.bajante = bajanteMasCercana;
@@ -335,10 +455,10 @@ public class RedSanitario : IExternalCommand
             sanitarioPlan.Name = floorPlan.Name + " Red Sanitaria";
             sanitarioPlan.Discipline = ViewDiscipline.Plumbing;
         }
-        */
 
         trans.Commit();
         return Result.Succeeded;
+        */
     }
 }
 
