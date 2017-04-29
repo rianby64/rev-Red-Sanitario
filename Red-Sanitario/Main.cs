@@ -142,12 +142,19 @@ public class RedSanitario : IExternalCommand
         public XYZ start;
         public XYZ end;
         public Level level;
+        public Pipe tubo;
         public Tuberia(XYZ start, XYZ end, Level level)
         {
             this.start = start;
             this.end = end;
             this.level = level;
         }
+    }
+    public class UnionXYZ
+    {
+        public Tuberia s1;
+        public Tuberia s2;
+        public Tuberia s3;
     }
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
@@ -159,6 +166,7 @@ public class RedSanitario : IExternalCommand
         trans.Start("Lab");
 
         List<Tuberia> tuberias = new List<Tuberia>();
+        List<UnionXYZ> uniones = new List<UnionXYZ>();
         
         Element pvc = new FilteredElementCollector(doc)
             .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeCurves))
@@ -254,9 +262,62 @@ public class RedSanitario : IExternalCommand
 
         foreach (Tuberia tubo in tuberias)
         {
-            Pipe tubito = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, tubo.start, tubo.end);
+            tubo.tubo = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, tubo.start, tubo.end);
         }
+        
+        foreach (Tuberia tuboA in tuberias)
+        {
+            List<Tuberia> union = new List<Tuberia>();
+            foreach (Tuberia tuboB in tuberias)
+            {
+                if (tuboB == tuboA)
+                {
+                    continue;
+                }
+                double d1 = tuboA.start.DistanceTo(tuboB.start);
+                double d2 = tuboA.start.DistanceTo(tuboB.end);
 
+                if (d1 < epsilon || d2 < epsilon)
+                {
+                    union.Add(tuboB);
+                }
+            }
+            if (union.Count > 0)
+            {
+                union.Add(tuboA);
+                UnionXYZ u = new UnionXYZ();
+                u.s1 = union[0];
+                u.s2 = union[1];
+                if (union.Count > 2)
+                {
+                    u.s3 = union[2];
+                }
+
+                bool agregar = true;
+                foreach (UnionXYZ un in uniones)
+                {
+                    if (un.s3 == null && u.s3 != null)
+                    {
+                        continue;
+                    }
+                    if ((un.s1 != u.s1 && un.s1 != u.s2 && un.s1 != u.s3) ||
+                        (un.s2 != u.s1 && un.s2 != u.s2 && un.s2 != u.s3) ||
+                        (un.s3 != u.s1 && un.s3 != u.s2 && un.s3 != u.s3))
+                    {
+
+                    } else
+                    {
+                        agregar = false;
+                        break;
+                    }
+                }
+                if (agregar)
+                {
+                    uniones.Add(u);
+                }
+            }
+        }
+        
         trans.Commit();
         return Result.Succeeded;
         /*
