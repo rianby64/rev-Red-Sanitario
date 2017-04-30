@@ -171,7 +171,9 @@ public class RedSanitario : IExternalCommand
         ConnectorManager cmpvc2 = p2.ConnectorManager;
         ConnectorManager cmpvc3 = p3.ConnectorManager;
 
-        XYZ s1 = null, s2 = null, s3 = null;
+        Connector pp1 = null, pp2 = null;
+
+        XYZ s1 = null, s2 = null;
 
         XYZ p1start = cmpvc1.Lookup(0).Origin;
         XYZ p1end = cmpvc1.Lookup(1).Origin;
@@ -188,12 +190,16 @@ public class RedSanitario : IExternalCommand
             offset = p1end;
             s1 = p1start;
             s2 = p2end;
+            pp1 = cmpvc1.Lookup(1);
+            pp2 = cmpvc2.Lookup(0);
         }
         if ((p1start.DistanceTo(p2end) < epsilon) && (p1start.DistanceTo(p3start) < epsilon))
         {
             offset = p1start;
-            s1 = p1start;
+            s1 = p1end;
             s2 = p2start;
+            pp1 = cmpvc1.Lookup(0);
+            pp2 = cmpvc2.Lookup(1);
         }
 
         FamilyInstance tee = doc.Create.NewFamilyInstance(offset, accesorioSymbol, StructuralType.NonStructural);
@@ -229,8 +235,8 @@ public class RedSanitario : IExternalCommand
             ElementTransformUtils.RotateElement(doc, tee.Id, t1, Math.PI);
         }
 
-        tc1.ConnectTo(cmpvc1.Lookup(1));
-        tc2.ConnectTo(cmpvc2.Lookup(0));
+        tc1.ConnectTo(pp1);
+        tc2.ConnectTo(pp2);
         tc3.ConnectTo(cmpvc3.Lookup(0));
 
     }
