@@ -155,6 +155,63 @@ public class RedSanitario : IExternalCommand
         public Tuberia s1;
         public Tuberia s2;
         public Tuberia s3;
+        public XYZ offset;
+    }
+    void ConnectTubos(Document doc, Pipe p1, Pipe p2, Pipe p3)
+    {
+        double epsilon = 0.0001;
+        FamilySymbol accesorioSymbol = new FilteredElementCollector(doc)
+            .OfClass(typeof(FamilySymbol))
+            .OfCategory(BuiltInCategory.OST_PipeFitting)
+            .Cast<FamilySymbol>()
+            .Where<FamilySymbol>(e => e.Family.Name.Contains("Tee - Plain - PVC-C"))
+            .FirstOrDefault();
+        
+        ConnectorManager cmpvc1 = p1.ConnectorManager;
+        ConnectorManager cmpvc2 = p2.ConnectorManager;
+        ConnectorManager cmpvc3 = p3.ConnectorManager;
+
+        XYZ p1start = cmpvc1.Lookup(0).Origin;
+        XYZ p1end = cmpvc1.Lookup(1).Origin;
+
+        XYZ p2start = cmpvc2.Lookup(0).Origin;
+        XYZ p2end = cmpvc2.Lookup(1).Origin;
+
+        XYZ p3start = cmpvc3.Lookup(0).Origin;
+        XYZ p3end = cmpvc3.Lookup(1).Origin;
+
+        XYZ offset = null;
+        if ((p1end.DistanceTo(p2start) < epsilon) && (p1end.DistanceTo(p3start) < epsilon))
+        {
+            offset = p1end;
+        }
+
+        FamilyInstance tee = doc.Create.NewFamilyInstance(offset, accesorioSymbol, StructuralType.NonStructural);
+        ConnectorManager cmtee = tee.MEPModel.ConnectorManager;
+        Connector tc1 = cmtee.Lookup(1);
+        Connector tc2 = cmtee.Lookup(2);
+        Connector tc3 = cmtee.Lookup(3);
+
+        double angle = (tc2.Origin - tc1.Origin).AngleTo(p2end - p1start);
+        Line t0 = Line.CreateBound(tc1.Origin, tc2.Origin);
+        Line t1 = Line.CreateBound(p2end, p1start);
+        Line t2 = Line.CreateBound(p3end, p3start);
+        double cp = t2.Direction.DotProduct(t1.Direction.CrossProduct(XYZ.BasisZ));
+
+        double angleBranch = (p2end - p1start).AngleTo(p3end - p3start);
+        Parameter radius = tee.LookupParameter("Nominal Radius");
+        radius.Set(p1.Diameter / 2.0);
+        
+        tee.LookupParameter("Angle").Set(angleBranch);
+        if (cp < 0)
+        {
+            ElementTransformUtils.RotateElement(doc, tee.Id, t1, angle + Math.PI);
+        }
+
+        tc1.ConnectTo(cmpvc1.Lookup(1));
+        tc2.ConnectTo(cmpvc2.Lookup(0));
+        tc3.ConnectTo(cmpvc3.Lookup(0));
+
     }
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
@@ -286,11 +343,36 @@ public class RedSanitario : IExternalCommand
             {
                 union.Add(tuboA);
                 UnionXYZ u = new UnionXYZ();
-                u.s1 = union[0];
-                u.s2 = union[1];
                 if (union.Count > 2)
                 {
-                    u.s3 = union[2];
+                    XYZ v0 = union[0].end - union[0].start;
+                    XYZ v1 = union[1].end - union[1].start;
+                    XYZ v2 = union[2].end - union[2].start;
+
+                    double av01 = v0.AngleTo(v1);
+                    double av02 = v0.AngleTo(v2);
+                    double av12 = v1.AngleTo(v2);
+
+                    if (av01 < epsilon)
+                    {
+                        u.s1 = union[0];
+                        u.s2 = union[1];
+                        u.s3 = union[2];
+                    } else if (av02 < epsilon)
+                    {
+                        u.s1 = union[0];
+                        u.s2 = union[2];
+                        u.s3 = union[1];
+                    } else if (av12 < epsilon)
+                    {
+                        u.s1 = union[1];
+                        u.s2 = union[2];
+                        u.s3 = union[0];
+                    }
+                } else
+                {
+                    u.s1 = union[0];
+                    u.s2 = union[1];
                 }
 
                 bool agregar = true;
@@ -315,6 +397,14 @@ public class RedSanitario : IExternalCommand
                 {
                     uniones.Add(u);
                 }
+            }
+        }
+
+        foreach (UnionXYZ union in uniones)
+        {
+            if (union.s3 != null)
+            {
+                ConnectTubos(doc, union.s1.tubo, union.s2.tubo, union.s3.tubo);
             }
         }
         
