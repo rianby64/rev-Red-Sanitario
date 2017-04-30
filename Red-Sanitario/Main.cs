@@ -159,6 +159,43 @@ public class RedSanitario : IExternalCommand
     }
     void ConnectTubos(Document doc, Pipe p1, Pipe p2, Pipe p3)
     {
+        ConnectorManager cmpvc1 = p1.ConnectorManager;
+        ConnectorManager cmpvc2 = p2.ConnectorManager;
+        ConnectorManager cmpvc3 = p3.ConnectorManager;
+
+        XYZ p1start = cmpvc1.Lookup(0).Origin;
+        XYZ p1end = cmpvc1.Lookup(1).Origin;
+
+        XYZ p2start = cmpvc2.Lookup(0).Origin;
+        XYZ p2end = cmpvc2.Lookup(1).Origin;
+
+        XYZ p3start = cmpvc3.Lookup(0).Origin;
+        XYZ p3end = cmpvc3.Lookup(1).Origin;
+        
+        double oldY = p3end.Y;
+
+        Connector p3pp0 = cmpvc3.Lookup(0);
+        Connector p3pp1 = cmpvc3.Lookup(1);
+        p3pp1.Origin = new XYZ(p3end.X, p3start.Y, p3end.Z);
+
+        FamilyInstance tee = doc.Create.NewTeeFitting(cmpvc1.Lookup(1), cmpvc2.Lookup(0), cmpvc3.Lookup(0));
+
+        Connector teecm1 = tee.MEPModel.ConnectorManager.Lookup(0);
+        Connector teecm2 = tee.MEPModel.ConnectorManager.Lookup(2);
+        Connector teecm3 = tee.MEPModel.ConnectorManager.Lookup(3);
+
+        teecm3.DisconnectFrom(cmpvc3.Lookup(0));
+        p3pp1.Origin = new XYZ(p3end.X, oldY, p3end.Z);
+        p3pp0.Origin = new XYZ(p1end.X, p1end.Y, p1end.Z);
+
+        double angleBranch = (p1start - p2end).AngleTo(p3end - p3start);
+        tee.LookupParameter("Angle").Set(angleBranch - Math.PI / 2);
+        doc.Regenerate();
+        p3pp0.Origin = teecm3.Origin;
+        teecm3.ConnectTo(cmpvc3.Lookup(0));
+        //
+
+        /*
         double epsilon = 0.0001;
         FamilySymbol accesorioSymbol = new FilteredElementCollector(doc)
             .OfClass(typeof(FamilySymbol))
@@ -238,7 +275,7 @@ public class RedSanitario : IExternalCommand
         tc1.ConnectTo(pp1);
         tc2.ConnectTo(pp2);
         tc3.ConnectTo(cmpvc3.Lookup(0));
-
+        */
     }
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
