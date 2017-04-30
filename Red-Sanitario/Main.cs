@@ -159,6 +159,7 @@ public class RedSanitario : IExternalCommand
     }
     void ConnectTubos(Document doc, Pipe p1, Pipe p2, Pipe p3)
     {
+        double epsilon = 0.001;
         ConnectorManager cmpvc1 = p1.ConnectorManager;
         ConnectorManager cmpvc2 = p2.ConnectorManager;
         ConnectorManager cmpvc3 = p3.ConnectorManager;
@@ -171,111 +172,49 @@ public class RedSanitario : IExternalCommand
 
         XYZ p3start = cmpvc3.Lookup(0).Origin;
         XYZ p3end = cmpvc3.Lookup(1).Origin;
-        
-        double oldY = p3end.Y;
 
-        Connector p3pp0 = cmpvc3.Lookup(0);
-        Connector p3pp1 = cmpvc3.Lookup(1);
-        p3pp1.Origin = new XYZ(p3end.X, p3start.Y, p3end.Z);
+        Connector s11 = null, s12 = null, s21 = null, s22 = null, s31 = null, s32 = null;
+        XYZ old = null;
 
-        FamilyInstance tee = doc.Create.NewTeeFitting(cmpvc1.Lookup(1), cmpvc2.Lookup(0), cmpvc3.Lookup(0));
+        if (p3start.DistanceTo(p2start) < epsilon && p3start.DistanceTo(p1end) < epsilon)
+        {
+            s11 = cmpvc1.Lookup(0); s12 = cmpvc1.Lookup(1);
+            s21 = cmpvc2.Lookup(0); s22 = cmpvc2.Lookup(1);
+            s31 = cmpvc3.Lookup(0); s32 = cmpvc3.Lookup(1);
+        }
+        else if (p3end.DistanceTo(p2start) < epsilon && p3end.DistanceTo(p1end) < epsilon)
+        {
+            s11 = cmpvc1.Lookup(0); s12 = cmpvc1.Lookup(1);
+            s21 = cmpvc2.Lookup(0); s22 = cmpvc2.Lookup(1);
+            s31 = cmpvc3.Lookup(1); s32 = cmpvc3.Lookup(0);
+        }
+        else
+        {
+            old = null;
+        }
+        old = new XYZ(s32.Origin.X, s32.Origin.Y, s32.Origin.Z);
+        XYZ k1 = s12.Origin - s11.Origin;
+        XYZ k2 = s32.Origin - s31.Origin;
+        XYZ v = k1.CrossProduct(k2).Normalize();
+        XYZ vn = v.CrossProduct(k1).Normalize();
 
-        Connector teecm1 = tee.MEPModel.ConnectorManager.Lookup(0);
-        Connector teecm2 = tee.MEPModel.ConnectorManager.Lookup(2);
+        Line rama = Line.CreateBound(s32.Origin, s31.Origin);
+        s32.Origin = s31.Origin + vn.DotProduct(k2) * vn;
+        FamilyInstance tee = doc.Create.NewTeeFitting(s12, s21, s31);
         Connector teecm3 = tee.MEPModel.ConnectorManager.Lookup(3);
 
-        teecm3.DisconnectFrom(cmpvc3.Lookup(0));
-        p3pp1.Origin = new XYZ(p3end.X, oldY, p3end.Z);
-        p3pp0.Origin = new XYZ(p1end.X, p1end.Y, p1end.Z);
+        XYZ v1 = tee.MEPModel.ConnectorManager.Lookup(1).Origin;
+        XYZ v2 = tee.MEPModel.ConnectorManager.Lookup(2).Origin;
+        Line guia = Line.CreateBound(v2, v1);
+        double angle = guia.Direction.AngleTo(rama.Direction);
+        
+        teecm3.DisconnectFrom(s31);
+        s32.Origin = new XYZ(old.X, old.Y, old.Z);
 
-        double angleBranch = (p1start - p2end).AngleTo(p3end - p3start);
-        tee.LookupParameter("Angle").Set(angleBranch - Math.PI / 2);
+        tee.LookupParameter("Angle").Set(angle);
         doc.Regenerate();
-        p3pp0.Origin = teecm3.Origin;
-        teecm3.ConnectTo(cmpvc3.Lookup(0));
-        //
-
-        /*
-        double epsilon = 0.0001;
-        FamilySymbol accesorioSymbol = new FilteredElementCollector(doc)
-            .OfClass(typeof(FamilySymbol))
-            .OfCategory(BuiltInCategory.OST_PipeFitting)
-            .Cast<FamilySymbol>()
-            .Where<FamilySymbol>(e => e.Family.Name.Contains("Tee - Plain - PVC-C"))
-            .FirstOrDefault();
-        
-        ConnectorManager cmpvc1 = p1.ConnectorManager;
-        ConnectorManager cmpvc2 = p2.ConnectorManager;
-        ConnectorManager cmpvc3 = p3.ConnectorManager;
-
-        Connector pp1 = null, pp2 = null;
-
-        XYZ s1 = null, s2 = null;
-
-        XYZ p1start = cmpvc1.Lookup(0).Origin;
-        XYZ p1end = cmpvc1.Lookup(1).Origin;
-
-        XYZ p2start = cmpvc2.Lookup(0).Origin;
-        XYZ p2end = cmpvc2.Lookup(1).Origin;
-
-        XYZ p3start = cmpvc3.Lookup(0).Origin;
-        XYZ p3end = cmpvc3.Lookup(1).Origin;
-
-        XYZ offset = null;
-        if ((p1end.DistanceTo(p2start) < epsilon) && (p1end.DistanceTo(p3start) < epsilon))
-        {
-            offset = p1end;
-            s1 = p1start;
-            s2 = p2end;
-            pp1 = cmpvc1.Lookup(1);
-            pp2 = cmpvc2.Lookup(0);
-        }
-        if ((p1start.DistanceTo(p2end) < epsilon) && (p1start.DistanceTo(p3start) < epsilon))
-        {
-            offset = p1start;
-            s1 = p1end;
-            s2 = p2start;
-            pp1 = cmpvc1.Lookup(0);
-            pp2 = cmpvc2.Lookup(1);
-        }
-
-        FamilyInstance tee = doc.Create.NewFamilyInstance(offset, accesorioSymbol, StructuralType.NonStructural);
-        ConnectorManager cmtee = tee.MEPModel.ConnectorManager;
-        Connector tc1 = cmtee.Lookup(1);
-        Connector tc2 = cmtee.Lookup(2);
-        Connector tc3 = cmtee.Lookup(3);
-
-        double angle = (tc2.Origin - tc1.Origin).AngleTo(s2 - s1);
-        Line t0 = Line.CreateBound(tc1.Origin, tc2.Origin);
-        Line t1 = Line.CreateBound(s2, s1);
-        Line t2 = Line.CreateBound(p3end, p3start);
-        double cp = t2.Direction.DotProduct(t1.Direction.CrossProduct(XYZ.BasisZ));
-
-        double angleBranch = (s2 - s1).AngleTo(p3end - p3start);
-        Parameter radius = tee.LookupParameter("Nominal Radius");
-        radius.Set(p1.Diameter / 2.0);
-        
-        tee.LookupParameter("Angle").Set(angleBranch);
-
-        double cc = t0.Direction.DotProduct(t1.Direction);
-
-        if (cc < 0)
-        {
-
-        } else
-        {
-            Line axis = Line.CreateBound(offset, offset + offset.CrossProduct(s2 - s1));
-            ElementTransformUtils.RotateElement(doc, tee.Id, axis, -angle);
-        }
-        if (cp < 0)
-        {
-            ElementTransformUtils.RotateElement(doc, tee.Id, t1, Math.PI);
-        }
-
-        tc1.ConnectTo(pp1);
-        tc2.ConnectTo(pp2);
-        tc3.ConnectTo(cmpvc3.Lookup(0));
-        */
+        s31.Origin = teecm3.Origin;
+        teecm3.ConnectTo(s31);
     }
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
