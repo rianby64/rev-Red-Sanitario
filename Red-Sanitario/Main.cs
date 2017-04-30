@@ -171,6 +171,8 @@ public class RedSanitario : IExternalCommand
         ConnectorManager cmpvc2 = p2.ConnectorManager;
         ConnectorManager cmpvc3 = p3.ConnectorManager;
 
+        XYZ s1 = null, s2 = null, s3 = null;
+
         XYZ p1start = cmpvc1.Lookup(0).Origin;
         XYZ p1end = cmpvc1.Lookup(1).Origin;
 
@@ -184,6 +186,14 @@ public class RedSanitario : IExternalCommand
         if ((p1end.DistanceTo(p2start) < epsilon) && (p1end.DistanceTo(p3start) < epsilon))
         {
             offset = p1end;
+            s1 = p1start;
+            s2 = p2end;
+        }
+        if ((p1start.DistanceTo(p2end) < epsilon) && (p1start.DistanceTo(p3start) < epsilon))
+        {
+            offset = p1start;
+            s1 = p1start;
+            s2 = p2start;
         }
 
         FamilyInstance tee = doc.Create.NewFamilyInstance(offset, accesorioSymbol, StructuralType.NonStructural);
@@ -192,20 +202,31 @@ public class RedSanitario : IExternalCommand
         Connector tc2 = cmtee.Lookup(2);
         Connector tc3 = cmtee.Lookup(3);
 
-        double angle = (tc2.Origin - tc1.Origin).AngleTo(p2end - p1start);
+        double angle = (tc2.Origin - tc1.Origin).AngleTo(s2 - s1);
         Line t0 = Line.CreateBound(tc1.Origin, tc2.Origin);
-        Line t1 = Line.CreateBound(p2end, p1start);
+        Line t1 = Line.CreateBound(s2, s1);
         Line t2 = Line.CreateBound(p3end, p3start);
         double cp = t2.Direction.DotProduct(t1.Direction.CrossProduct(XYZ.BasisZ));
 
-        double angleBranch = (p2end - p1start).AngleTo(p3end - p3start);
+        double angleBranch = (s2 - s1).AngleTo(p3end - p3start);
         Parameter radius = tee.LookupParameter("Nominal Radius");
         radius.Set(p1.Diameter / 2.0);
         
         tee.LookupParameter("Angle").Set(angleBranch);
+
+        double cc = t0.Direction.DotProduct(t1.Direction);
+
+        if (cc < 0)
+        {
+
+        } else
+        {
+            Line axis = Line.CreateBound(offset, offset + offset.CrossProduct(s2 - s1));
+            ElementTransformUtils.RotateElement(doc, tee.Id, axis, -angle);
+        }
         if (cp < 0)
         {
-            ElementTransformUtils.RotateElement(doc, tee.Id, t1, angle + Math.PI);
+            ElementTransformUtils.RotateElement(doc, tee.Id, t1, Math.PI);
         }
 
         tc1.ConnectTo(cmpvc1.Lookup(1));
