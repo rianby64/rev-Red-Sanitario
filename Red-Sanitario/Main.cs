@@ -69,19 +69,31 @@ public class RedSanitario : IExternalCommand
         }
         else
         {
-
+            return;
         }
         FamilyInstance tee = doc.Create.NewElbowFitting(s12, s21);
-        Parameter radius;
-        if (t1.lineStyle.Name == "<Overhead>")
+        Parameter radius = null;
+        string tn1 = t1.lineStyle.Name;
+        string tn2 = t2.lineStyle.Name;
+        if (tn1 == "<Overhead>")
         {
             radius = p1.LookupParameter("Diameter");
             radius.Set(0.25);
         }
-        if (t2.lineStyle.Name == "<Overhead>")
+        if (tn2 == "<Overhead>")
         {
             radius = p2.LookupParameter("Diameter");
             radius.Set(0.25);
+        }
+        double r1 = p1.LookupParameter("Diameter").AsDouble();
+        double r2 = p2.LookupParameter("Diameter").AsDouble();
+        if (Math.Abs(r1 - r2) < epsilon)
+        {
+            if (tn1 == tn2 && tn2 == "<Overhead>")
+            {
+                radius = tee.LookupParameter("Nominal Radius");
+                radius.Set(0.25 / 2.0);
+            }
         }
     }
     void Connect3Tubos(Document doc, Tuberia t1, Tuberia t2, Tuberia t3)
@@ -120,7 +132,7 @@ public class RedSanitario : IExternalCommand
         }
         else
         {
-            old = null;
+            return;
         }
         old = new XYZ(s32.Origin.X, s32.Origin.Y, s32.Origin.Z);
         XYZ k1 = s12.Origin - s11.Origin;
@@ -145,21 +157,35 @@ public class RedSanitario : IExternalCommand
         doc.Regenerate();
         s31.Origin = teecm3.Origin;
         teecm3.ConnectTo(s31);
-        Parameter radius;
-        if (t1.lineStyle.Name == "<Overhead>")
+        Parameter radius = null;
+        string tn1 = t1.lineStyle.Name;
+        string tn2 = t2.lineStyle.Name;
+        string tn3 = t3.lineStyle.Name;
+        if (tn1 == "<Overhead>")
         {
             radius = p1.LookupParameter("Diameter");
             radius.Set(0.25);
         }
-        if (t2.lineStyle.Name == "<Overhead>")
+        if (tn2 == "<Overhead>")
         {
             radius = p2.LookupParameter("Diameter");
             radius.Set(0.25);
         }
-        if (t3.lineStyle.Name == "<Overhead>")
+        if (tn3 == "<Overhead>")
         {
             radius = p3.LookupParameter("Diameter");
             radius.Set(0.25);
+        }
+        double r1 = p1.LookupParameter("Diameter").AsDouble();
+        double r2 = p2.LookupParameter("Diameter").AsDouble();
+        double r3 = p3.LookupParameter("Diameter").AsDouble();
+        if (Math.Abs(r1 - r2) < epsilon && Math.Abs(r2 - r3) < epsilon && Math.Abs(r1 - r3) < epsilon)
+        {
+            if (tn1 == tn2 && tn2 == tn3 && tn3 == "<Overhead>")
+            {
+                radius = tee.LookupParameter("Nominal Radius");
+                radius.Set(0.25 / 2.0);
+            }
         }
     }
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
