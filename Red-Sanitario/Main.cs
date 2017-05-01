@@ -147,11 +147,17 @@ public class RedSanitario : IExternalCommand
           .WherePasses(new ElementClassFilter(typeof(PipingSystemType)))
           .Where(e => e.Name.Equals("Hydronic Return"))
           .FirstOrDefault();
+        
+        Group grupo = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Group)))
+            .Cast<Group>()
+            .Where(e => e.Name.Equals("sanitario"))
+            .FirstOrDefault();
 
         List<CurveElement> guides = new FilteredElementCollector(doc)
             .WherePasses(new CurveElementFilter(CurveElementType.ModelCurve))
             .Cast<CurveElement>()
-            .Where(e => e.GeometryCurve.GetType() == typeof(Line))
+            .Where(e => e.GeometryCurve.GetType() == typeof(Line) && e.GroupId == grupo.Id)
             .ToList();
 
         List<Level> levels = new FilteredElementCollector(doc)
