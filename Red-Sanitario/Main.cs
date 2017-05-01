@@ -83,7 +83,7 @@ public class RedSanitario : IExternalCommand
 
         XYZ p3start = cmpvc3.Lookup(0).Origin;
         XYZ p3end = cmpvc3.Lookup(1).Origin;
-
+        
         Connector s11 = null, s12 = null, s21 = null, s22 = null, s31 = null, s32 = null;
         XYZ old = null;
 
@@ -149,7 +149,7 @@ public class RedSanitario : IExternalCommand
           .FirstOrDefault();
 
         List<CurveElement> guides = new FilteredElementCollector(doc)
-            .WherePasses(new CurveElementFilter(CurveElementType.DetailCurve))
+            .WherePasses(new CurveElementFilter(CurveElementType.ModelCurve))
             .Cast<CurveElement>()
             .Where(e => e.GeometryCurve.GetType() == typeof(Line))
             .ToList();
