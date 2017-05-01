@@ -18,12 +18,14 @@ public class RedSanitario : IExternalCommand
     {
         public XYZ start;
         public XYZ end;
+        public Element lineStyle;
         public Level level;
         public Pipe tubo;
-        public Tuberia(XYZ start, XYZ end, Level level)
+        public Tuberia(XYZ start, XYZ end, Element lineStyle, Level level)
         {
             this.start = start;
             this.end = end;
+            this.lineStyle = lineStyle;
             this.level = level;
         }
     }
@@ -34,8 +36,11 @@ public class RedSanitario : IExternalCommand
         public Tuberia s3;
         public XYZ offset;
     }
-    void Connect2Tubos(Document doc, Pipe p1, Pipe p2)
+    void Connect2Tubos(Document doc, Tuberia t1, Tuberia t2)
     {
+        Pipe p1 = t1.tubo;
+        Pipe p2 = t2.tubo;
+
         double epsilon = 0.001;
         ConnectorManager cmpvc1 = p1.ConnectorManager;
         ConnectorManager cmpvc2 = p2.ConnectorManager;
@@ -67,9 +72,23 @@ public class RedSanitario : IExternalCommand
 
         }
         FamilyInstance tee = doc.Create.NewElbowFitting(s12, s21);
+        Parameter radius;
+        if (t1.lineStyle.Name == "<Overhead>")
+        {
+            radius = p1.LookupParameter("Diameter");
+            radius.Set(0.25);
+        }
+        if (t2.lineStyle.Name == "<Overhead>")
+        {
+            radius = p2.LookupParameter("Diameter");
+            radius.Set(0.25);
+        }
     }
-    void Connect3Tubos(Document doc, Pipe p1, Pipe p2, Pipe p3)
+    void Connect3Tubos(Document doc, Tuberia t1, Tuberia t2, Tuberia t3)
     {
+        Pipe p1 = t1.tubo;
+        Pipe p2 = t2.tubo;
+        Pipe p3 = t3.tubo;
         double epsilon = 0.001;
         ConnectorManager cmpvc1 = p1.ConnectorManager;
         ConnectorManager cmpvc2 = p2.ConnectorManager;
@@ -126,6 +145,22 @@ public class RedSanitario : IExternalCommand
         doc.Regenerate();
         s31.Origin = teecm3.Origin;
         teecm3.ConnectTo(s31);
+        Parameter radius;
+        if (t1.lineStyle.Name == "<Overhead>")
+        {
+            radius = p1.LookupParameter("Diameter");
+            radius.Set(0.25);
+        }
+        if (t2.lineStyle.Name == "<Overhead>")
+        {
+            radius = p2.LookupParameter("Diameter");
+            radius.Set(0.25);
+        }
+        if (t3.lineStyle.Name == "<Overhead>")
+        {
+            radius = p3.LookupParameter("Diameter");
+            radius.Set(0.25);
+        }
     }
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
@@ -184,7 +219,7 @@ public class RedSanitario : IExternalCommand
                 currentLevel = nextLevel;
                 currentH = nextLevel.Elevation;
             }
-            tuberias.Add(new Tuberia(start, end, currentLevel));
+            tuberias.Add(new Tuberia(start, end, guide.LineStyle, currentLevel));
         }
 
         double epsilon = 0.0001;
@@ -197,6 +232,10 @@ public class RedSanitario : IExternalCommand
             Tuberia lastTube = null;
             foreach (Tuberia tubo in tuberias)
             {
+                if (currentTube.level != tubo.level)
+                {
+                    continue;
+                }
                 XYZ s0 = tubo.start;
                 XYZ s1 = tubo.end;
                 double d = s0.DistanceTo(s1);
@@ -217,16 +256,16 @@ public class RedSanitario : IExternalCommand
                 if ((Math.Abs(sv0 + sv1) < 0.01) && (ds0 < d) && (ds1 < d) && (ds0 * ds1 > epsilon))
                 {
                     lastTube = tubo;
-                    tuberias.Add(new Tuberia(s0, start, tubo.level));
-                    tuberias.Add(new Tuberia(start, s1, tubo.level));
+                    tuberias.Add(new Tuberia(s0, start, tubo.lineStyle, tubo.level));
+                    tuberias.Add(new Tuberia(start, s1, tubo.lineStyle, tubo.level));
                     i = -1;
                     break;
                 }
                 if ((Math.Abs(sv2 + sv3) < 0.01) && (ds2 < d) && (ds3 < d) && (ds2 * ds3 > epsilon))
                 {
                     lastTube = tubo;
-                    tuberias.Add(new Tuberia(end, s1, tubo.level));
-                    tuberias.Add(new Tuberia(s0, end, tubo.level));
+                    tuberias.Add(new Tuberia(end, s1, tubo.lineStyle, tubo.level));
+                    tuberias.Add(new Tuberia(s0, end, tubo.lineStyle, tubo.level));
                     i = -1;
                     break;
                 }
@@ -324,10 +363,10 @@ public class RedSanitario : IExternalCommand
         {
             if (union.s3 != null)
             {
-                Connect3Tubos(doc, union.s1.tubo, union.s2.tubo, union.s3.tubo);
+                Connect3Tubos(doc, union.s1, union.s2, union.s3);
             } else
             {
-                Connect2Tubos(doc, union.s1.tubo, union.s2.tubo);
+                Connect2Tubos(doc, union.s1, union.s2);
             }
         }
         
