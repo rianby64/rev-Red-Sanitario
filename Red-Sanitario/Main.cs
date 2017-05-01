@@ -148,7 +148,7 @@ public class RedSanitario : IExternalCommand
         r1.Set(rr1);
         r2.Set(rr2);
         r3.Set(rr3);
-        tee.LookupParameter("Nominal Radius").Set(Math.Min(Math.Min(rr1, rr2), rr3));
+        tee.LookupParameter("Nominal Radius").Set(Math.Max(Math.Max(rr1, rr2), rr3) / 2.0);
         doc.Regenerate();
         s31.Origin = teecm3.Origin;
         teecm3.ConnectTo(s31);
