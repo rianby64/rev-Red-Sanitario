@@ -71,36 +71,26 @@ public class RedSanitario : IExternalCommand
         {
             return;
         }
+        
         FamilyInstance tee = doc.Create.NewElbowFitting(s12, s21);
-        Parameter radius = null;
-        string tn1 = t1.lineStyle.Name;
-        string tn2 = t2.lineStyle.Name;
-        if (tn1 == "<Overhead>")
-        {
-            radius = p1.LookupParameter("Diameter");
-            radius.Set(0.25);
-        }
-        if (tn2 == "<Overhead>")
-        {
-            radius = p2.LookupParameter("Diameter");
-            radius.Set(0.25);
-        }
-        double r1 = p1.LookupParameter("Diameter").AsDouble();
-        double r2 = p2.LookupParameter("Diameter").AsDouble();
-        if (Math.Abs(r1 - r2) < epsilon)
-        {
-            if (tn1 == tn2 && tn2 == "<Overhead>")
-            {
-                radius = tee.LookupParameter("Nominal Radius");
-                radius.Set(0.25 / 2.0);
-            }
-        }
     }
     void Connect3Tubos(Document doc, Tuberia t1, Tuberia t2, Tuberia t3)
     {
         Pipe p1 = t1.tubo;
         Pipe p2 = t2.tubo;
         Pipe p3 = t3.tubo;
+
+        Parameter r1 = p1.LookupParameter("Diameter");
+        Parameter r2 = p2.LookupParameter("Diameter");
+        Parameter r3 = p3.LookupParameter("Diameter");
+
+        double rr1 = r1.AsDouble();
+        double rr2 = r2.AsDouble();
+        double rr3 = r3.AsDouble();
+
+        r1.Set(1.0);
+        r2.Set(1.0);
+        r3.Set(1.0);
         double epsilon = 0.001;
         ConnectorManager cmpvc1 = p1.ConnectorManager;
         ConnectorManager cmpvc2 = p2.ConnectorManager;
@@ -134,6 +124,7 @@ public class RedSanitario : IExternalCommand
         {
             return;
         }
+        
         old = new XYZ(s32.Origin.X, s32.Origin.Y, s32.Origin.Z);
         XYZ k1 = s12.Origin - s11.Origin;
         XYZ k2 = s32.Origin - s31.Origin;
@@ -149,44 +140,18 @@ public class RedSanitario : IExternalCommand
         XYZ v2 = tee.MEPModel.ConnectorManager.Lookup(2).Origin;
         Line guia = Line.CreateBound(v2, v1);
         double angle = guia.Direction.AngleTo(rama.Direction);
-        
         teecm3.DisconnectFrom(s31);
         s32.Origin = new XYZ(old.X, old.Y, old.Z);
 
         tee.LookupParameter("Angle").Set(angle);
+
+        r1.Set(rr1);
+        r2.Set(rr2);
+        r3.Set(rr3);
+        tee.LookupParameter("Nominal Radius").Set(Math.Min(Math.Min(rr1, rr2), rr3));
         doc.Regenerate();
         s31.Origin = teecm3.Origin;
         teecm3.ConnectTo(s31);
-        Parameter radius = null;
-        string tn1 = t1.lineStyle.Name;
-        string tn2 = t2.lineStyle.Name;
-        string tn3 = t3.lineStyle.Name;
-        if (tn1 == "<Overhead>")
-        {
-            radius = p1.LookupParameter("Diameter");
-            radius.Set(0.25);
-        }
-        if (tn2 == "<Overhead>")
-        {
-            radius = p2.LookupParameter("Diameter");
-            radius.Set(0.25);
-        }
-        if (tn3 == "<Overhead>")
-        {
-            radius = p3.LookupParameter("Diameter");
-            radius.Set(0.25);
-        }
-        double r1 = p1.LookupParameter("Diameter").AsDouble();
-        double r2 = p2.LookupParameter("Diameter").AsDouble();
-        double r3 = p3.LookupParameter("Diameter").AsDouble();
-        if (Math.Abs(r1 - r2) < epsilon && Math.Abs(r2 - r3) < epsilon && Math.Abs(r1 - r3) < epsilon)
-        {
-            if (tn1 == tn2 && tn2 == tn3 && tn3 == "<Overhead>")
-            {
-                radius = tee.LookupParameter("Nominal Radius");
-                radius.Set(0.25 / 2.0);
-            }
-        }
     }
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
@@ -305,6 +270,14 @@ public class RedSanitario : IExternalCommand
         foreach (Tuberia tubo in tuberias)
         {
             tubo.tubo = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, tubo.start, tubo.end);
+
+            Parameter radius = null;
+            string tn1 = tubo.lineStyle.Name;
+            if (tn1 == "<Overhead>")
+            {
+                radius = tubo.tubo.LookupParameter("Diameter");
+                radius.Set(0.25);
+            }
         }
         
         foreach (Tuberia tuboA in tuberias)
