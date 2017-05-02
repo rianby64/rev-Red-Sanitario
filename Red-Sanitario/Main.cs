@@ -120,8 +120,12 @@ public class RedSanitario : IExternalCommand
             s21 = cmpvc2.Lookup(0); s22 = cmpvc2.Lookup(1);
             s31 = cmpvc3.Lookup(1); s32 = cmpvc3.Lookup(0);
         }
-        else
+        else if (p3start.DistanceTo(p1start) < epsilon && p3start.DistanceTo(p2end) < epsilon)
         {
+            s11 = cmpvc1.Lookup(1); s12 = cmpvc1.Lookup(0);
+            s21 = cmpvc2.Lookup(1); s22 = cmpvc2.Lookup(0);
+            s31 = cmpvc3.Lookup(0); s32 = cmpvc3.Lookup(1);
+        } else {
             return;
         }
         
