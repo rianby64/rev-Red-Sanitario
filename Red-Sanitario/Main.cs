@@ -34,10 +34,13 @@ public class RedSanitario : IExternalCommand
         public Tuberia s1;
         public Tuberia s2;
         public Tuberia s3;
-        public XYZ offset;
     }
     void Connect2Tubos(Document doc, Tuberia t1, Tuberia t2)
     {
+        if (t1 == null || t2 == null)
+        {
+            return;
+        }
         Pipe p1 = t1.tubo;
         Pipe p2 = t2.tubo;
 
@@ -67,7 +70,21 @@ public class RedSanitario : IExternalCommand
             s21 = cmpvc2.Lookup(0);
             s22 = cmpvc2.Lookup(1);
         }
-        else
+        else if (p1end.DistanceTo(p2end) < epsilon)
+        {
+            s11 = cmpvc1.Lookup(0);
+            s12 = cmpvc1.Lookup(1);
+            s21 = cmpvc2.Lookup(1);
+            s22 = cmpvc2.Lookup(0);
+        }
+        else if (p1start.DistanceTo(p2end) < epsilon)
+        {
+            s11 = cmpvc1.Lookup(1);
+            s12 = cmpvc1.Lookup(0);
+            s21 = cmpvc2.Lookup(1);
+            s22 = cmpvc2.Lookup(0);
+        }
+        else 
         {
             return;
         }
@@ -76,6 +93,10 @@ public class RedSanitario : IExternalCommand
     }
     void Connect3Tubos(Document doc, Tuberia t1, Tuberia t2, Tuberia t3)
     {
+        if (t1 == null || t2 == null)
+        {
+            return;
+        }
         Pipe p1 = t1.tubo;
         Pipe p2 = t2.tubo;
         Pipe p3 = t3.tubo;
@@ -88,9 +109,9 @@ public class RedSanitario : IExternalCommand
         double rr2 = r2.AsDouble();
         double rr3 = r3.AsDouble();
 
-        r1.Set(1.0);
-        r2.Set(1.0);
-        r3.Set(1.0);
+        r1.Set(0.1);
+        r2.Set(0.1);
+        r3.Set(0.1);
         double epsilon = 0.001;
         ConnectorManager cmpvc1 = p1.ConnectorManager;
         ConnectorManager cmpvc2 = p2.ConnectorManager;
@@ -125,7 +146,27 @@ public class RedSanitario : IExternalCommand
             s11 = cmpvc1.Lookup(1); s12 = cmpvc1.Lookup(0);
             s21 = cmpvc2.Lookup(1); s22 = cmpvc2.Lookup(0);
             s31 = cmpvc3.Lookup(0); s32 = cmpvc3.Lookup(1);
-        } else {
+        }
+        else if (p3end.DistanceTo(p1start) < epsilon && p3end.DistanceTo(p2end) < epsilon)
+        {
+            s11 = cmpvc1.Lookup(1); s12 = cmpvc1.Lookup(0);
+            s21 = cmpvc2.Lookup(1); s22 = cmpvc2.Lookup(0);
+            s31 = cmpvc3.Lookup(1); s32 = cmpvc3.Lookup(0);
+        }
+        else if (p3end.DistanceTo(p1start) < epsilon && p3end.DistanceTo(p2start) < epsilon)
+        {
+            s11 = cmpvc1.Lookup(1); s12 = cmpvc1.Lookup(0);
+            s21 = cmpvc2.Lookup(0); s22 = cmpvc2.Lookup(1);
+            s31 = cmpvc3.Lookup(1); s32 = cmpvc3.Lookup(0);
+        }
+        else if (p3start.DistanceTo(p1start) < epsilon && p3start.DistanceTo(p2start) < epsilon)
+        {
+            s11 = cmpvc1.Lookup(1); s12 = cmpvc1.Lookup(0);
+            s21 = cmpvc2.Lookup(0); s22 = cmpvc2.Lookup(1);
+            s31 = cmpvc3.Lookup(0); s32 = cmpvc3.Lookup(1);
+        }
+        else
+        {
             return;
         }
         
@@ -218,7 +259,7 @@ public class RedSanitario : IExternalCommand
         }
 
         double epsilon = 0.0001;
-        for (var i = 0; i < tuberias.Count; i++)
+        for (int i = 0; i < tuberias.Count; i++)
         {
             Tuberia currentTube = tuberias[i];
             XYZ start = currentTube.start;
@@ -228,6 +269,10 @@ public class RedSanitario : IExternalCommand
             foreach (Tuberia tubo in tuberias)
             {
                 if (currentTube.level != tubo.level)
+                {
+                    continue;
+                }
+                if (currentTube == tubo)
                 {
                     continue;
                 }
@@ -277,16 +322,25 @@ public class RedSanitario : IExternalCommand
 
             Parameter radius = null;
             string tn1 = tubo.lineStyle.Name;
+
+
             if (tn1 == "<Overhead>")
             {
                 radius = tubo.tubo.LookupParameter("Diameter");
-                radius.Set(0.25);
+                radius.Set(1.0/6.0);
+            }
+            else
+            {
+                radius = tubo.tubo.LookupParameter("Diameter");
+                radius.Set(2.0 / 6.0);
             }
         }
         
         foreach (Tuberia tuboA in tuberias)
         {
-            List<Tuberia> union = new List<Tuberia>();
+            List<Tuberia> unionStart = new List<Tuberia>();
+            List<Tuberia> unionEnd = new List<Tuberia>();
+
             foreach (Tuberia tuboB in tuberias)
             {
                 if (tuboB == tuboA)
@@ -296,45 +350,119 @@ public class RedSanitario : IExternalCommand
                 double d1 = tuboA.start.DistanceTo(tuboB.start);
                 double d2 = tuboA.start.DistanceTo(tuboB.end);
 
+                double d3 = tuboA.end.DistanceTo(tuboB.start);
+                double d4 = tuboA.end.DistanceTo(tuboB.end);
                 if (d1 < epsilon || d2 < epsilon)
                 {
-                    union.Add(tuboB);
+                    unionStart.Add(tuboB);
+                }
+                if (d3 < epsilon || d4 < epsilon)
+                {
+                    unionEnd.Add(tuboB);
                 }
             }
-            if (union.Count > 0)
+            if (unionStart.Count > 0)
             {
-                union.Add(tuboA);
+                unionStart.Add(tuboA);
+
                 UnionXYZ u = new UnionXYZ();
-                if (union.Count > 2)
+                if (unionStart.Count > 2)
                 {
-                    XYZ v0 = union[0].end - union[0].start;
-                    XYZ v1 = union[1].end - union[1].start;
-                    XYZ v2 = union[2].end - union[2].start;
+                    XYZ v0 = unionStart[0].end - unionStart[0].start;
+                    XYZ v1 = unionStart[1].end - unionStart[1].start;
+                    XYZ v2 = unionStart[2].end - unionStart[2].start;
 
                     double av01 = v0.AngleTo(v1);
                     double av02 = v0.AngleTo(v2);
                     double av12 = v1.AngleTo(v2);
 
-                    if (av01 < epsilon)
+                    if (av01 < epsilon || Math.Abs(av01 - Math.PI) < epsilon)
                     {
-                        u.s1 = union[0];
-                        u.s2 = union[1];
-                        u.s3 = union[2];
-                    } else if (av02 < epsilon)
-                    {
-                        u.s1 = union[0];
-                        u.s2 = union[2];
-                        u.s3 = union[1];
-                    } else if (av12 < epsilon)
-                    {
-                        u.s1 = union[1];
-                        u.s2 = union[2];
-                        u.s3 = union[0];
+                        u.s1 = unionStart[0];
+                        u.s2 = unionStart[1];
+                        u.s3 = unionStart[2];
                     }
-                } else
+                    else if (av02 < epsilon || Math.Abs(av02 - Math.PI) < epsilon)
+                    {
+                        u.s1 = unionStart[0];
+                        u.s2 = unionStart[2];
+                        u.s3 = unionStart[1];
+                    }
+                    else if (av12 < epsilon || Math.Abs(av12 - Math.PI) < epsilon)
+                    {
+                        u.s1 = unionStart[1];
+                        u.s2 = unionStart[2];
+                        u.s3 = unionStart[0];
+                    }
+                }
+                else
                 {
-                    u.s1 = union[0];
-                    u.s2 = union[1];
+                    u.s1 = unionStart[0];
+                    u.s2 = unionStart[1];
+                }
+
+                bool agregar = true;
+                foreach (UnionXYZ un in uniones)
+                {
+                    if (un.s3 == null && u.s3 != null)
+                    {
+                        continue;
+                    }
+                    if ((un.s1 != u.s1 && un.s1 != u.s2 && un.s1 != u.s3) ||
+                        (un.s2 != u.s1 && un.s2 != u.s2 && un.s2 != u.s3) ||
+                        (un.s3 != u.s1 && un.s3 != u.s2 && un.s3 != u.s3))
+                    {
+
+                    }
+                    else
+                    {
+                        agregar = false;
+                        break;
+                    }
+                }
+                if (agregar)
+                {
+                    uniones.Add(u);
+                }
+            }
+            if (unionEnd.Count > 0)
+            {
+                unionEnd.Add(tuboA);
+
+                UnionXYZ u = new UnionXYZ();
+                if (unionEnd.Count > 2)
+                {
+                    XYZ v0 = unionEnd[0].end - unionEnd[0].start;
+                    XYZ v1 = unionEnd[1].end - unionEnd[1].start;
+                    XYZ v2 = unionEnd[2].end - unionEnd[2].start;
+
+                    double av01 = v0.AngleTo(v1);
+                    double av02 = v0.AngleTo(v2);
+                    double av12 = v1.AngleTo(v2);
+
+                    if (av01 < epsilon || Math.Abs(av01 - Math.PI) < epsilon)
+                    {
+                        u.s1 = unionEnd[0];
+                        u.s2 = unionEnd[1];
+                        u.s3 = unionEnd[2];
+                    }
+                    else if (av02 < epsilon || Math.Abs(av02 - Math.PI) < epsilon)
+                    {
+                        u.s1 = unionEnd[0];
+                        u.s2 = unionEnd[2];
+                        u.s3 = unionEnd[1];
+                    }
+                    else if (av12 < epsilon || Math.Abs(av12 - Math.PI) < epsilon)
+                    {
+                        u.s1 = unionEnd[1];
+                        u.s2 = unionEnd[2];
+                        u.s3 = unionEnd[0];
+                    }
+                }
+                else
+                {
+                    u.s1 = unionEnd[0];
+                    u.s2 = unionEnd[1];
                 }
 
                 bool agregar = true;
