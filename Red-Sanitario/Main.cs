@@ -360,6 +360,10 @@ public class RedSanitario : IExternalCommand
                 {
                     unionEnd.Add(tuboB);
                 }
+                if (unionStart.Count == 2 && unionEnd.Count == 2)
+                {
+                    break;
+                }
             }
             if (unionStart.Count > 0)
             {
