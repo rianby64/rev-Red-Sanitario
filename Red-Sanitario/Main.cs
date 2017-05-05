@@ -17,7 +17,9 @@ public class RedSanitario : IExternalCommand
     public class Tuberia
     {
         public XYZ start;
+        public bool startConnected = false;
         public XYZ end;
+        public bool endConnected = false;
         public Element lineStyle;
         public Level level;
         public Pipe tubo;
@@ -60,29 +62,45 @@ public class RedSanitario : IExternalCommand
         {
             s11 = cmpvc1.Lookup(1);
             s12 = cmpvc1.Lookup(0);
+
             s21 = cmpvc2.Lookup(0);
             s22 = cmpvc2.Lookup(1);
+
+            t1.startConnected = true;
+            t2.startConnected = true;
         }
         else if (p1end.DistanceTo(p2start) < epsilon)
         {
             s11 = cmpvc1.Lookup(0);
             s12 = cmpvc1.Lookup(1);
+
             s21 = cmpvc2.Lookup(0);
             s22 = cmpvc2.Lookup(1);
+
+            t1.endConnected = true;
+            t2.startConnected = true;
         }
         else if (p1end.DistanceTo(p2end) < epsilon)
         {
             s11 = cmpvc1.Lookup(0);
             s12 = cmpvc1.Lookup(1);
+
             s21 = cmpvc2.Lookup(1);
             s22 = cmpvc2.Lookup(0);
+
+            t1.endConnected = true;
+            t2.endConnected = true;
         }
         else if (p1start.DistanceTo(p2end) < epsilon)
         {
             s11 = cmpvc1.Lookup(1);
             s12 = cmpvc1.Lookup(0);
+
             s21 = cmpvc2.Lookup(1);
             s22 = cmpvc2.Lookup(0);
+
+            t1.startConnected = true;
+            t2.endConnected = true;
         }
         else 
         {
@@ -131,39 +149,69 @@ public class RedSanitario : IExternalCommand
 
         if (p3start.DistanceTo(p2start) < epsilon && p3start.DistanceTo(p1end) < epsilon)
         {
+            // s12, s21, s31
             s11 = cmpvc1.Lookup(0); s12 = cmpvc1.Lookup(1);
             s21 = cmpvc2.Lookup(0); s22 = cmpvc2.Lookup(1);
             s31 = cmpvc3.Lookup(0); s32 = cmpvc3.Lookup(1);
+
+            t1.endConnected = true;
+            t2.startConnected = true;
+            t3.startConnected = true;
         }
         else if (p3end.DistanceTo(p2start) < epsilon && p3end.DistanceTo(p1end) < epsilon)
         {
+            // s12, s21, s31
             s11 = cmpvc1.Lookup(0); s12 = cmpvc1.Lookup(1);
             s21 = cmpvc2.Lookup(0); s22 = cmpvc2.Lookup(1);
             s31 = cmpvc3.Lookup(1); s32 = cmpvc3.Lookup(0);
+
+            t1.endConnected = true;
+            t2.startConnected = true;
+            t3.endConnected = true;
         }
         else if (p3start.DistanceTo(p1start) < epsilon && p3start.DistanceTo(p2end) < epsilon)
         {
+            // s12, s21, s31
             s11 = cmpvc1.Lookup(1); s12 = cmpvc1.Lookup(0);
             s21 = cmpvc2.Lookup(1); s22 = cmpvc2.Lookup(0);
             s31 = cmpvc3.Lookup(0); s32 = cmpvc3.Lookup(1);
+
+            t1.startConnected = true;
+            t2.endConnected = true;
+            t3.startConnected = true;
         }
         else if (p3end.DistanceTo(p1start) < epsilon && p3end.DistanceTo(p2end) < epsilon)
         {
+            // s12, s21, s31
             s11 = cmpvc1.Lookup(1); s12 = cmpvc1.Lookup(0);
             s21 = cmpvc2.Lookup(1); s22 = cmpvc2.Lookup(0);
             s31 = cmpvc3.Lookup(1); s32 = cmpvc3.Lookup(0);
+
+            t1.startConnected = true;
+            t2.endConnected = true;
+            t3.endConnected = true;
         }
         else if (p3end.DistanceTo(p1start) < epsilon && p3end.DistanceTo(p2start) < epsilon)
         {
+            // s12, s21, s31
             s11 = cmpvc1.Lookup(1); s12 = cmpvc1.Lookup(0);
             s21 = cmpvc2.Lookup(0); s22 = cmpvc2.Lookup(1);
             s31 = cmpvc3.Lookup(1); s32 = cmpvc3.Lookup(0);
+
+            t1.startConnected = true;
+            t2.startConnected = true;
+            t3.endConnected = true;
         }
         else if (p3start.DistanceTo(p1start) < epsilon && p3start.DistanceTo(p2start) < epsilon)
         {
+            // s12, s21, s31
             s11 = cmpvc1.Lookup(1); s12 = cmpvc1.Lookup(0);
             s21 = cmpvc2.Lookup(0); s22 = cmpvc2.Lookup(1);
             s31 = cmpvc3.Lookup(0); s32 = cmpvc3.Lookup(1);
+
+            t1.startConnected = true;
+            t2.startConnected = true;
+            t3.startConnected = true;
         }
         else
         {
@@ -505,6 +553,37 @@ public class RedSanitario : IExternalCommand
             }
         }
         
+        foreach (Tuberia tubo in tuberias)
+        {
+            if (!tubo.startConnected)
+            {
+                XYZ start = tubo.start;
+                XYZ end = new XYZ(start.X, start.Y, start.Z + 5.0);
+                Pipe tube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, start, end);
+
+                Parameter radius = tube.LookupParameter("Diameter");
+                radius.Set(0.5 / 6.0);
+
+                ConnectorManager cmpvc1 = tubo.tubo.ConnectorManager;
+                ConnectorManager cmpvc2 = tube.ConnectorManager;
+
+                doc.Create.NewElbowFitting(cmpvc1.Lookup(0), cmpvc2.Lookup(0));
+            }
+            if (!tubo.endConnected)
+            {
+                XYZ start = tubo.end;
+                XYZ end = new XYZ(start.X, start.Y, start.Z + 5.0);
+                Pipe tube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, start, end);
+
+                Parameter radius = tube.LookupParameter("Diameter");
+                radius.Set(0.5 / 6.0);
+
+                ConnectorManager cmpvc1 = tubo.tubo.ConnectorManager;
+                ConnectorManager cmpvc2 = tube.ConnectorManager;
+
+                doc.Create.NewElbowFitting(cmpvc1.Lookup(1), cmpvc2.Lookup(0));
+            }
+        }
         trans.Commit();
         return Result.Succeeded;
 
