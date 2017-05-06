@@ -303,7 +303,10 @@ public class RedSanitario : IExternalCommand
                 currentLevel = nextLevel;
                 currentH = nextLevel.Elevation;
             }
-            tuberias.Add(new Tuberia(start, end, guide.LineStyle, currentLevel));
+            tuberias.Add(new Tuberia(
+                new XYZ(start.X, start.Y, start.Z - UnitUtils.ConvertToInternalUnits(0.6, DisplayUnitType.DUT_METERS)),
+                new XYZ(end.X, end.Y, end.Z - UnitUtils.ConvertToInternalUnits(0.6, DisplayUnitType.DUT_METERS)),
+                guide.LineStyle, currentLevel));
         }
 
         double epsilon = 0.0001;
@@ -558,11 +561,11 @@ public class RedSanitario : IExternalCommand
             if (!tubo.startConnected)
             {
                 XYZ start = tubo.start;
-                XYZ end = new XYZ(start.X, start.Y, start.Z + 5.0);
+                XYZ end = new XYZ(start.X, start.Y, start.Z + UnitUtils.ConvertToInternalUnits(0.6, DisplayUnitType.DUT_METERS));
                 Pipe tube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, start, end);
 
                 Parameter radius = tube.LookupParameter("Diameter");
-                radius.Set(0.5 / 6.0);
+                radius.Set(UnitUtils.ConvertToInternalUnits(1.5, DisplayUnitType.DUT_DECIMAL_INCHES));
 
                 ConnectorManager cmpvc1 = tubo.tubo.ConnectorManager;
                 ConnectorManager cmpvc2 = tube.ConnectorManager;
@@ -572,11 +575,11 @@ public class RedSanitario : IExternalCommand
             if (!tubo.endConnected)
             {
                 XYZ start = tubo.end;
-                XYZ end = new XYZ(start.X, start.Y, start.Z + 5.0);
+                XYZ end = new XYZ(start.X, start.Y, start.Z + UnitUtils.ConvertToInternalUnits(0.6, DisplayUnitType.DUT_METERS));
                 Pipe tube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, start, end);
 
                 Parameter radius = tube.LookupParameter("Diameter");
-                radius.Set(0.5 / 6.0);
+                radius.Set(UnitUtils.ConvertToInternalUnits(1.5, DisplayUnitType.DUT_DECIMAL_INCHES));
 
                 ConnectorManager cmpvc1 = tubo.tubo.ConnectorManager;
                 ConnectorManager cmpvc2 = tube.ConnectorManager;
