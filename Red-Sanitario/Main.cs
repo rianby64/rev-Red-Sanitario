@@ -599,6 +599,14 @@ public class RedSanitario : IExternalCommand
                 ConnectorManager cmpvc2 = tube.ConnectorManager;
 
                 elbow = doc.Create.NewElbowFitting(cmpvc1.Lookup(0), cmpvc2.Lookup(0));
+                if (tn == "<Overhead>")
+                {
+                    elbow.LookupParameter("Nominal Radius").Set(tubo.tubo.LookupParameter("Diameter").AsDouble() / 2.0);
+                    doc.Regenerate();
+                    XYZ originInferior = elbow.MEPModel.ConnectorManager.Lookup(2).Origin;
+                    cmpvc2.Lookup(0).Origin = new XYZ(originInferior.X, originInferior.Y, cmpvc2.Lookup(0).Origin.Z);
+                    cmpvc2.Lookup(1).Origin = new XYZ(originInferior.X, originInferior.Y, cmpvc2.Lookup(1).Origin.Z);
+                }
             }
             if (!tubo.endConnected)
             {
@@ -622,7 +630,14 @@ public class RedSanitario : IExternalCommand
                 ConnectorManager cmpvc2 = tube.ConnectorManager;
 
                 elbow = doc.Create.NewElbowFitting(cmpvc1.Lookup(1), cmpvc2.Lookup(0));
-                //elbow.LookupParameter("Nominal Radius").Set(tubo.tubo.LookupParameter("Diameter").AsDouble() / 2.0);
+                if (tn == "<Overhead>")
+                {
+                    elbow.LookupParameter("Nominal Radius").Set(tubo.tubo.LookupParameter("Diameter").AsDouble() / 2.0);
+                    doc.Regenerate();
+                    XYZ originInferior = elbow.MEPModel.ConnectorManager.Lookup(2).Origin;
+                    cmpvc2.Lookup(0).Origin = new XYZ(originInferior.X, originInferior.Y, cmpvc2.Lookup(0).Origin.Z);
+                    cmpvc2.Lookup(1).Origin = new XYZ(originInferior.X, originInferior.Y, cmpvc2.Lookup(1).Origin.Z);
+                }
             }
         }
         trans.Commit();
