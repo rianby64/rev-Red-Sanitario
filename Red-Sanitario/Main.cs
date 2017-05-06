@@ -607,6 +607,12 @@ public class RedSanitario : IExternalCommand
                     cmpvc2.Lookup(0).Origin = new XYZ(originInferior.X, originInferior.Y, cmpvc2.Lookup(0).Origin.Z);
                     cmpvc2.Lookup(1).Origin = new XYZ(originInferior.X, originInferior.Y, cmpvc2.Lookup(1).Origin.Z);
                 }
+
+                XYZ salienteXYZ = new XYZ(cmpvc2.Lookup(1).Origin.X, cmpvc2.Lookup(1).Origin.Y, cmpvc2.Lookup(1).Origin.Z + 0.3);
+                Pipe salienteTube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, cmpvc2.Lookup(1).Origin, salienteXYZ);
+                salienteTube.LookupParameter("Diameter").Set(tube.LookupParameter("Diameter").AsDouble());
+
+                doc.Create.NewUnionFitting(cmpvc2.Lookup(1), salienteTube.ConnectorManager.Lookup(0));
             }
             if (!tubo.endConnected)
             {
@@ -638,6 +644,12 @@ public class RedSanitario : IExternalCommand
                     cmpvc2.Lookup(0).Origin = new XYZ(originInferior.X, originInferior.Y, cmpvc2.Lookup(0).Origin.Z);
                     cmpvc2.Lookup(1).Origin = new XYZ(originInferior.X, originInferior.Y, cmpvc2.Lookup(1).Origin.Z);
                 }
+
+                XYZ salienteXYZ = new XYZ(cmpvc2.Lookup(1).Origin.X, cmpvc2.Lookup(1).Origin.Y, cmpvc2.Lookup(1).Origin.Z + 0.3);
+                Pipe salienteTube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, cmpvc2.Lookup(1).Origin, salienteXYZ);
+                salienteTube.LookupParameter("Diameter").Set(tube.LookupParameter("Diameter").AsDouble());
+
+                doc.Create.NewUnionFitting(cmpvc2.Lookup(1), salienteTube.ConnectorManager.Lookup(0));
             }
         }
         trans.Commit();
