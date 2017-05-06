@@ -285,6 +285,23 @@ public class RedSanitario : IExternalCommand
             .OrderBy(e => e.Elevation)
             .ToList();
 
+
+        Family sifonFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Family)))
+            .Cast<Family>()
+            .Where(e => e.Name.Equals("sifon"))
+            .FirstOrDefault();
+
+        FamilySymbol sifonSymbol = new FilteredElementCollector(doc)
+            .WherePasses(new FamilySymbolFilter(sifonFamily.Id))
+            .Cast<FamilySymbol>()
+            .Where(e => e.Name.Equals("sifon 3x2"))
+            .FirstOrDefault();
+
+        IList<FamilyInstance> sifones = new FilteredElementCollector(doc)
+            .WherePasses(new FamilyInstanceFilter(doc, sifonSymbol.Id))
+            .Cast<FamilyInstance>().ToList();
+
         foreach (CurveElement guide in guides)
         {
             XYZ start = guide.GeometryCurve.GetEndPoint(0);
@@ -555,36 +572,57 @@ public class RedSanitario : IExternalCommand
                 Connect2Tubos(doc, union.s1, union.s2);
             }
         }
-        
+
         foreach (Tuberia tubo in tuberias)
         {
+            Pipe tube = null;
+            FamilyInstance elbow = null;
             if (!tubo.startConnected)
             {
                 XYZ start = tubo.start;
                 XYZ end = new XYZ(start.X, start.Y, start.Z + UnitUtils.ConvertToInternalUnits(0.6, DisplayUnitType.DUT_METERS));
-                Pipe tube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, start, end);
+                tube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, start, end);
 
                 Parameter radius = tube.LookupParameter("Diameter");
-                radius.Set(UnitUtils.ConvertToInternalUnits(1.5, DisplayUnitType.DUT_DECIMAL_INCHES));
+
+                string tn = tubo.lineStyle.Name;
+                if (tn == "<Overhead>")
+                {
+                    radius.Set(UnitUtils.ConvertToInternalUnits(1.5, DisplayUnitType.DUT_DECIMAL_INCHES));
+                }
+                else
+                {
+                    radius.Set(tubo.tubo.LookupParameter("Diameter").AsDouble());
+                }
 
                 ConnectorManager cmpvc1 = tubo.tubo.ConnectorManager;
                 ConnectorManager cmpvc2 = tube.ConnectorManager;
 
-                doc.Create.NewElbowFitting(cmpvc1.Lookup(0), cmpvc2.Lookup(0));
+                elbow = doc.Create.NewElbowFitting(cmpvc1.Lookup(0), cmpvc2.Lookup(0));
             }
             if (!tubo.endConnected)
             {
                 XYZ start = tubo.end;
                 XYZ end = new XYZ(start.X, start.Y, start.Z + UnitUtils.ConvertToInternalUnits(0.6, DisplayUnitType.DUT_METERS));
-                Pipe tube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, start, end);
+                tube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, start, end);
 
                 Parameter radius = tube.LookupParameter("Diameter");
-                radius.Set(UnitUtils.ConvertToInternalUnits(1.5, DisplayUnitType.DUT_DECIMAL_INCHES));
+
+                string tn = tubo.lineStyle.Name;
+                if (tn == "<Overhead>")
+                {
+                    radius.Set(UnitUtils.ConvertToInternalUnits(1.5, DisplayUnitType.DUT_DECIMAL_INCHES));
+                }
+                else
+                {
+                    radius.Set(tubo.tubo.LookupParameter("Diameter").AsDouble());
+                }
 
                 ConnectorManager cmpvc1 = tubo.tubo.ConnectorManager;
                 ConnectorManager cmpvc2 = tube.ConnectorManager;
 
-                doc.Create.NewElbowFitting(cmpvc1.Lookup(1), cmpvc2.Lookup(0));
+                elbow = doc.Create.NewElbowFitting(cmpvc1.Lookup(1), cmpvc2.Lookup(0));
+                //elbow.LookupParameter("Nominal Radius").Set(tubo.tubo.LookupParameter("Diameter").AsDouble() / 2.0);
             }
         }
         trans.Commit();
