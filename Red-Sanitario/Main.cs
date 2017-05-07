@@ -284,7 +284,21 @@ public class RedSanitario : IExternalCommand
             .Cast<Level>()
             .OrderBy(e => e.Elevation)
             .ToList();
+        
+        Element puntoSifonFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeFitting))
+            .Where(e => e.Name.Equals("punto sifon"))
+            .FirstOrDefault();
 
+        Element puntoSanitarioFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeFitting))
+            .Where(e => e.Name.Equals("punto sanitario"))
+            .FirstOrDefault();
+
+        Element puntoLavamanosFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeFitting))
+            .Where(e => e.Name.Equals("punto lavamanos"))
+            .FirstOrDefault();
 
         Family sifonFamily = new FilteredElementCollector(doc)
             .WherePasses(new ElementClassFilter(typeof(Family)))
@@ -301,6 +315,41 @@ public class RedSanitario : IExternalCommand
         IList<FamilyInstance> sifones = new FilteredElementCollector(doc)
             .WherePasses(new FamilyInstanceFilter(doc, sifonSymbol.Id))
             .Cast<FamilyInstance>().ToList();
+
+
+        Family sanitarioFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Family)))
+            .Cast<Family>()
+            .Where(e => e.Name.Equals("sanitario fmly"))
+            .FirstOrDefault();
+
+        FamilySymbol sanitarioSymbol = new FilteredElementCollector(doc)
+            .WherePasses(new FamilySymbolFilter(sanitarioFamily.Id))
+            .Cast<FamilySymbol>()
+            .Where(e => e.Name.Equals("Snt1"))
+            .FirstOrDefault();
+
+        IList<FamilyInstance> sanitarios = new FilteredElementCollector(doc)
+            .WherePasses(new FamilyInstanceFilter(doc, sanitarioSymbol.Id))
+            .Cast<FamilyInstance>().ToList();
+        
+
+        Family lavamanosFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Family)))
+            .Cast<Family>()
+            .Where(e => e.Name.Equals("lavamanos monserrat"))
+            .FirstOrDefault();
+
+        FamilySymbol lavamanosSymbol = new FilteredElementCollector(doc)
+            .WherePasses(new FamilySymbolFilter(lavamanosFamily.Id))
+            .Cast<FamilySymbol>()
+            .Where(e => e.Name.Equals("LM1"))
+            .FirstOrDefault();
+
+        IList<FamilyInstance> lavamanos = new FilteredElementCollector(doc)
+            .WherePasses(new FamilyInstanceFilter(doc, lavamanosSymbol.Id))
+            .Cast<FamilyInstance>().ToList();
+
 
         foreach (CurveElement guide in guides)
         {
@@ -577,10 +626,14 @@ public class RedSanitario : IExternalCommand
         {
             Pipe tube = null;
             FamilyInstance elbow = null;
+            FamilyInstance puntoACobrar = null;
+            XYZ salienteXYZ = null;
+            Pipe salienteTube = null;
+
             if (!tubo.startConnected)
             {
                 XYZ start = tubo.start;
-                XYZ end = new XYZ(start.X, start.Y, start.Z + UnitUtils.ConvertToInternalUnits(0.6, DisplayUnitType.DUT_METERS));
+                XYZ end = new XYZ(start.X, start.Y, start.Z + UnitUtils.ConvertToInternalUnits(0.3, DisplayUnitType.DUT_METERS));
                 tube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, start, end);
 
                 Parameter radius = tube.LookupParameter("Diameter");
@@ -608,16 +661,17 @@ public class RedSanitario : IExternalCommand
                     cmpvc2.Lookup(1).Origin = new XYZ(originInferior.X, originInferior.Y, cmpvc2.Lookup(1).Origin.Z);
                 }
 
-                XYZ salienteXYZ = new XYZ(cmpvc2.Lookup(1).Origin.X, cmpvc2.Lookup(1).Origin.Y, cmpvc2.Lookup(1).Origin.Z + 0.3);
-                Pipe salienteTube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, cmpvc2.Lookup(1).Origin, salienteXYZ);
+                salienteXYZ = new XYZ(cmpvc2.Lookup(1).Origin.X, cmpvc2.Lookup(1).Origin.Y, cmpvc2.Lookup(1).Origin.Z + UnitUtils.ConvertToInternalUnits(0.3, DisplayUnitType.DUT_METERS));
+                salienteTube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, cmpvc2.Lookup(1).Origin, salienteXYZ);
                 salienteTube.LookupParameter("Diameter").Set(tube.LookupParameter("Diameter").AsDouble());
 
-                doc.Create.NewUnionFitting(cmpvc2.Lookup(1), salienteTube.ConnectorManager.Lookup(0));
+                puntoACobrar = doc.Create.NewUnionFitting(cmpvc2.Lookup(1), salienteTube.ConnectorManager.Lookup(0));
+                puntoACobrar.ChangeTypeId(puntoSanitarioFamily.Id);
             }
             if (!tubo.endConnected)
             {
                 XYZ start = tubo.end;
-                XYZ end = new XYZ(start.X, start.Y, start.Z + UnitUtils.ConvertToInternalUnits(0.6, DisplayUnitType.DUT_METERS));
+                XYZ end = new XYZ(start.X, start.Y, start.Z + UnitUtils.ConvertToInternalUnits(0.3, DisplayUnitType.DUT_METERS));
                 tube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, start, end);
 
                 Parameter radius = tube.LookupParameter("Diameter");
@@ -645,11 +699,81 @@ public class RedSanitario : IExternalCommand
                     cmpvc2.Lookup(1).Origin = new XYZ(originInferior.X, originInferior.Y, cmpvc2.Lookup(1).Origin.Z);
                 }
 
-                XYZ salienteXYZ = new XYZ(cmpvc2.Lookup(1).Origin.X, cmpvc2.Lookup(1).Origin.Y, cmpvc2.Lookup(1).Origin.Z + 0.3);
-                Pipe salienteTube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, cmpvc2.Lookup(1).Origin, salienteXYZ);
+                salienteXYZ = new XYZ(cmpvc2.Lookup(1).Origin.X, cmpvc2.Lookup(1).Origin.Y, cmpvc2.Lookup(1).Origin.Z + UnitUtils.ConvertToInternalUnits(0.3, DisplayUnitType.DUT_METERS));
+                salienteTube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, cmpvc2.Lookup(1).Origin, salienteXYZ);
                 salienteTube.LookupParameter("Diameter").Set(tube.LookupParameter("Diameter").AsDouble());
 
-                doc.Create.NewUnionFitting(cmpvc2.Lookup(1), salienteTube.ConnectorManager.Lookup(0));
+                puntoACobrar = doc.Create.NewUnionFitting(cmpvc2.Lookup(1), salienteTube.ConnectorManager.Lookup(0));
+                puntoACobrar.ChangeTypeId(puntoSanitarioFamily.Id);
+            }
+
+            if (salienteXYZ != null && salienteTube != null)
+            {
+                double distanciaMinima = 999999;
+                FamilyInstance sifonMinimo = null;
+                foreach (FamilyInstance sifon in sifones)
+                {
+                    double d = ((LocationPoint)(sifon.Location)).Point.DistanceTo(salienteXYZ);
+                    if (distanciaMinima > d)
+                    {
+                        distanciaMinima = d;
+                        sifonMinimo = sifon;
+                    }
+                }
+                double ww = UnitUtils.ConvertToInternalUnits(0.3, DisplayUnitType.DUT_METERS);
+                if (distanciaMinima < ww)
+                {
+                    XYZ punto = ((LocationPoint)(sifonMinimo.Location)).Point;
+                    XYZ puntoSifon = salienteTube.ConnectorManager.Lookup(1).Origin;
+                    salienteTube.ConnectorManager.Lookup(1).Origin = new XYZ(puntoSifon.X, puntoSifon.Y, punto.Z);
+
+                    puntoACobrar.ChangeTypeId(puntoSifonFamily.Id);
+                    continue;
+                }
+
+                distanciaMinima = 999999;
+                FamilyInstance lavamanoMinimo = null;
+                foreach (FamilyInstance lavamano in lavamanos)
+                {
+                    double d = ((LocationPoint)(lavamano.Location)).Point.DistanceTo(salienteXYZ);
+                    if (distanciaMinima > d)
+                    {
+                        distanciaMinima = d;
+                        lavamanoMinimo = lavamano;
+                    }
+                }
+                ww = UnitUtils.ConvertToInternalUnits(1.0, DisplayUnitType.DUT_METERS);
+                if (distanciaMinima < ww)
+                {
+                    XYZ punto = ((LocationPoint)(lavamanoMinimo.Location)).Point;
+                    XYZ puntoLavamanos = salienteTube.ConnectorManager.Lookup(1).Origin;
+                    salienteTube.ConnectorManager.Lookup(1).Origin = new XYZ(puntoLavamanos.X, puntoLavamanos.Y, punto.Z);
+
+                    puntoACobrar.ChangeTypeId(puntoLavamanosFamily.Id);
+                    continue;
+                }
+
+                distanciaMinima = 999999;
+                FamilyInstance sanitarioMinimo = null;
+                foreach (FamilyInstance sanitario in sanitarios)
+                {
+                    double d = ((LocationPoint)(sanitario.Location)).Point.DistanceTo(salienteXYZ);
+                    if (distanciaMinima > d)
+                    {
+                        distanciaMinima = d;
+                        sanitarioMinimo = sanitario;
+                    }
+                }
+                ww = UnitUtils.ConvertToInternalUnits(1.0, DisplayUnitType.DUT_METERS);
+                if (distanciaMinima < ww)
+                {
+                    XYZ punto = ((LocationPoint)(sanitarioMinimo.Location)).Point;
+                    XYZ puntoSanitario = salienteTube.ConnectorManager.Lookup(1).Origin;
+                    salienteTube.ConnectorManager.Lookup(1).Origin = new XYZ(puntoSanitario.X, puntoSanitario.Y, punto.Z);
+
+                    puntoACobrar.ChangeTypeId(puntoSanitarioFamily.Id);
+                    continue;
+                }
             }
         }
         trans.Commit();
