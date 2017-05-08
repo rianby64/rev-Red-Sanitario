@@ -539,9 +539,10 @@ public class RedSanitario : IExternalCommand
             }
         }
     }
-    public void CrearPuntosACobrar(Document doc, Element systemTypes, Element pvc, List<Tuberia> tuberias,
+    public void CrearPuntosACobrarSanitario(Document doc, Element systemTypes, Element pvc, List<Tuberia> tuberias,
         Element puntoSifonFamily, Element puntoSanitarioFamily, Element puntoLavamanosFamily,
-        IList<FamilyInstance> sifones, IList<FamilyInstance> sanitarios, IList<FamilyInstance> lavamanos)
+        IList<FamilyInstance> sifones, IList<FamilyInstance> sanitarios, IList<FamilyInstance> lavamanos,
+        IList<FamilyInstance> bajantes)
     {
         foreach (Tuberia tubo in tuberias)
         {
@@ -649,6 +650,36 @@ public class RedSanitario : IExternalCommand
                     salienteTube.ConnectorManager.Lookup(1).Origin = new XYZ(puntoSifon.X, puntoSifon.Y, punto.Z);
 
                     puntoACobrar.ChangeTypeId(puntoSifonFamily.Id);
+                    continue;
+                }
+
+                distanciaMinima = 999999;
+                FamilyInstance bajanteMinimo = null;
+                foreach (FamilyInstance bajante in bajantes)
+                {
+                    double d = ((LocationPoint)(bajante.Location)).Point.DistanceTo(salienteXYZ);
+                    if (distanciaMinima > d)
+                    {
+                        distanciaMinima = d;
+                        bajanteMinimo = bajante;
+                    }
+                }
+                ww = UnitUtils.ConvertToInternalUnits(0.001, DisplayUnitType.DUT_METERS);
+                if (distanciaMinima < ww)
+                {
+                    doc.Delete(elbow.Id);
+                    doc.Delete(puntoACobrar.Id);
+                    doc.Delete(tube.Id);
+                    if (!tubo.endConnected)
+                    {
+                        XYZ punto = tubo.tubo.ConnectorManager.Lookup(1).Origin;
+                        tubo.tubo.ConnectorManager.Lookup(1).Origin = new XYZ(salienteXYZ.X, salienteXYZ.Y, punto.Z);
+                    }
+                    else if (!tubo.startConnected)
+                    {
+                        XYZ punto = tubo.tubo.ConnectorManager.Lookup(0).Origin;
+                        tubo.tubo.ConnectorManager.Lookup(0).Origin = new XYZ(salienteXYZ.X, salienteXYZ.Y, punto.Z);
+                    }
                     continue;
                 }
 
@@ -830,13 +861,43 @@ public class RedSanitario : IExternalCommand
             .WherePasses(new FamilyInstanceFilter(doc, lavamanosSymbol.Id))
             .Cast<FamilyInstance>().ToList();
 
+
+        Family bajanteSanitarioFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Family)))
+            .Cast<Family>()
+            .Where(e => e.Name.Equals("bajante sanitario"))
+            .FirstOrDefault();
+
+        FamilySymbol bajanteSanitarioSymbol = new FilteredElementCollector(doc)
+            .WherePasses(new FamilySymbolFilter(bajanteSanitarioFamily.Id))
+            .Cast<FamilySymbol>()
+            .Where(e => e.Name.Equals("bajante sanitario"))
+            .FirstOrDefault();
+
+        IList<FamilyInstance> bajantesSanitario = new FilteredElementCollector(doc)
+            .WherePasses(new FamilyInstanceFilter(doc, bajanteSanitarioSymbol.Id))
+            .Cast<FamilyInstance>().ToList();
+
+        
+        FamilySymbol bajanteVentilacionSymbol = new FilteredElementCollector(doc)
+            .WherePasses(new FamilySymbolFilter(bajanteSanitarioFamily.Id))
+            .Cast<FamilySymbol>()
+            .Where(e => e.Name.Equals("bajante ventilacion"))
+            .FirstOrDefault();
+
+        IList<FamilyInstance> bajantesVentilacion = new FilteredElementCollector(doc)
+            .WherePasses(new FamilyInstanceFilter(doc, bajanteSanitarioSymbol.Id))
+            .Cast<FamilyInstance>().ToList();
+
+
         GenerarTuberias(guidesSanitario, levels, tuberiasSanitarias, 0.6);
         CrearTubos(doc, sanitarioType, pvcSanitaria, tuberiasSanitarias);
         GenerarUniones(tuberiasSanitarias, unionesSanitarias);
         CrearUniones(doc, unionesSanitarias);
-        CrearPuntosACobrar(doc, sanitarioType, pvcSanitaria, tuberiasSanitarias,
+        CrearPuntosACobrarSanitario(doc, sanitarioType, pvcSanitaria, tuberiasSanitarias,
             puntoSifonFamily, puntoSanitarioFamily, puntoLavamanosFamily,
-            sifones, sanitarios, lavamanos);
+            sifones, sanitarios, lavamanos,
+            bajantesSanitario);
 
 
         GenerarTuberias(guidesVentilacion, levels, tuberiasVentilacion, 0.495);
