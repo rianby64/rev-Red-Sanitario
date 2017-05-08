@@ -246,111 +246,8 @@ public class RedSanitario : IExternalCommand
         s31.Origin = teecm3.Origin;
         teecm3.ConnectTo(s31);
     }
-    public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+    public void GenerarTuberias(List<CurveElement> guides, List<Level> levels, List<Tuberia> tuberias)
     {
-        //Get application and document objects
-        UIApplication uiApp = commandData.Application;
-        Document doc = uiApp.ActiveUIDocument.Document;
-
-        Transaction trans = new Transaction(doc);
-        trans.Start("Lab");
-
-        List<Tuberia> tuberias = new List<Tuberia>();
-        List<UnionXYZ> uniones = new List<UnionXYZ>();
-        
-        Element pvc = new FilteredElementCollector(doc)
-            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeCurves))
-            .Where(e => e.Name.Equals("f pvc sanitaria 4"))
-            .FirstOrDefault();
-        Element systemTypes = new FilteredElementCollector(doc)
-          .WherePasses(new ElementClassFilter(typeof(PipingSystemType)))
-          .Where(e => e.Name.Equals("Hydronic Return"))
-          .FirstOrDefault();
-        
-        Group grupo = new FilteredElementCollector(doc)
-            .WherePasses(new ElementClassFilter(typeof(Group)))
-            .Cast<Group>()
-            .Where(e => e.Name.Equals("sanitario"))
-            .FirstOrDefault();
-
-        List<CurveElement> guides = new FilteredElementCollector(doc)
-            .WherePasses(new CurveElementFilter(CurveElementType.ModelCurve))
-            .Cast<CurveElement>()
-            .Where(e => e.GeometryCurve.GetType() == typeof(Line) && e.GroupId == grupo.Id)
-            .ToList();
-
-        List<Level> levels = new FilteredElementCollector(doc)
-            .WherePasses(new ElementClassFilter(typeof(Level)))
-            .Cast<Level>()
-            .OrderBy(e => e.Elevation)
-            .ToList();
-        
-        Element puntoSifonFamily = new FilteredElementCollector(doc)
-            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeFitting))
-            .Where(e => e.Name.Equals("punto sifon"))
-            .FirstOrDefault();
-
-        Element puntoSanitarioFamily = new FilteredElementCollector(doc)
-            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeFitting))
-            .Where(e => e.Name.Equals("punto sanitario"))
-            .FirstOrDefault();
-
-        Element puntoLavamanosFamily = new FilteredElementCollector(doc)
-            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeFitting))
-            .Where(e => e.Name.Equals("punto lavamanos"))
-            .FirstOrDefault();
-
-        Family sifonFamily = new FilteredElementCollector(doc)
-            .WherePasses(new ElementClassFilter(typeof(Family)))
-            .Cast<Family>()
-            .Where(e => e.Name.Equals("sifon"))
-            .FirstOrDefault();
-
-        FamilySymbol sifonSymbol = new FilteredElementCollector(doc)
-            .WherePasses(new FamilySymbolFilter(sifonFamily.Id))
-            .Cast<FamilySymbol>()
-            .Where(e => e.Name.Equals("sifon 3x2"))
-            .FirstOrDefault();
-
-        IList<FamilyInstance> sifones = new FilteredElementCollector(doc)
-            .WherePasses(new FamilyInstanceFilter(doc, sifonSymbol.Id))
-            .Cast<FamilyInstance>().ToList();
-
-
-        Family sanitarioFamily = new FilteredElementCollector(doc)
-            .WherePasses(new ElementClassFilter(typeof(Family)))
-            .Cast<Family>()
-            .Where(e => e.Name.Equals("sanitario fmly"))
-            .FirstOrDefault();
-
-        FamilySymbol sanitarioSymbol = new FilteredElementCollector(doc)
-            .WherePasses(new FamilySymbolFilter(sanitarioFamily.Id))
-            .Cast<FamilySymbol>()
-            .Where(e => e.Name.Equals("Snt1"))
-            .FirstOrDefault();
-
-        IList<FamilyInstance> sanitarios = new FilteredElementCollector(doc)
-            .WherePasses(new FamilyInstanceFilter(doc, sanitarioSymbol.Id))
-            .Cast<FamilyInstance>().ToList();
-        
-
-        Family lavamanosFamily = new FilteredElementCollector(doc)
-            .WherePasses(new ElementClassFilter(typeof(Family)))
-            .Cast<Family>()
-            .Where(e => e.Name.Equals("lavamanos monserrat"))
-            .FirstOrDefault();
-
-        FamilySymbol lavamanosSymbol = new FilteredElementCollector(doc)
-            .WherePasses(new FamilySymbolFilter(lavamanosFamily.Id))
-            .Cast<FamilySymbol>()
-            .Where(e => e.Name.Equals("LM1"))
-            .FirstOrDefault();
-
-        IList<FamilyInstance> lavamanos = new FilteredElementCollector(doc)
-            .WherePasses(new FamilyInstanceFilter(doc, lavamanosSymbol.Id))
-            .Cast<FamilyInstance>().ToList();
-
-
         foreach (CurveElement guide in guides)
         {
             XYZ start = guide.GeometryCurve.GetEndPoint(0);
@@ -409,7 +306,7 @@ public class RedSanitario : IExternalCommand
 
                 double ds2 = end.DistanceTo(s0);
                 double ds3 = end.DistanceTo(s1);
-                
+
                 if ((Math.Abs(sv0 + sv1) < 0.01) && (ds0 < d) && (ds1 < d) && (ds0 * ds1 > epsilon))
                 {
                     lastTube = tubo;
@@ -432,7 +329,9 @@ public class RedSanitario : IExternalCommand
                 tuberias.Remove(lastTube);
             }
         }
-
+    }
+    public void CrearTubos(Document doc, Element systemTypes, Element pvc, List<Tuberia> tuberias)
+    {
         foreach (Tuberia tubo in tuberias)
         {
             tubo.tubo = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, tubo.start, tubo.end);
@@ -444,7 +343,7 @@ public class RedSanitario : IExternalCommand
             if (tn1 == "<Overhead>")
             {
                 radius = tubo.tubo.LookupParameter("Diameter");
-                radius.Set(1.0/6.0);
+                radius.Set(1.0 / 6.0);
             }
             else
             {
@@ -452,7 +351,10 @@ public class RedSanitario : IExternalCommand
                 radius.Set(2.0 / 6.0);
             }
         }
-        
+    }
+    public void GenerarUniones(List<Tuberia> tuberias, List<UnionXYZ> uniones)
+    {
+        double epsilon = 0.001;
         foreach (Tuberia tuboA in tuberias)
         {
             List<Tuberia> unionStart = new List<Tuberia>();
@@ -598,7 +500,8 @@ public class RedSanitario : IExternalCommand
                         (un.s3 != u.s1 && un.s3 != u.s2 && un.s3 != u.s3))
                     {
 
-                    } else
+                    }
+                    else
                     {
                         agregar = false;
                         break;
@@ -610,18 +513,25 @@ public class RedSanitario : IExternalCommand
                 }
             }
         }
-
+    }
+    public void CrearUniones(Document doc, List<UnionXYZ> uniones)
+    {
         foreach (UnionXYZ union in uniones)
         {
             if (union.s3 != null)
             {
                 Connect3Tubos(doc, union.s1, union.s2, union.s3);
-            } else
+            }
+            else
             {
                 Connect2Tubos(doc, union.s1, union.s2);
             }
         }
-
+    }
+    public void CrearPuntosACobrar(Document doc, Element systemTypes, Element pvc, List<Tuberia> tuberias,
+        Element puntoSifonFamily, Element puntoSanitarioFamily, Element puntoLavamanosFamily,
+        IList<FamilyInstance> sifones, IList<FamilyInstance> lavamanos, IList<FamilyInstance> sanitarios)
+    {
         foreach (Tuberia tubo in tuberias)
         {
             Pipe tube = null;
@@ -776,6 +686,117 @@ public class RedSanitario : IExternalCommand
                 }
             }
         }
+    }
+    public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+    {
+        //Get application and document objects
+        UIApplication uiApp = commandData.Application;
+        Document doc = uiApp.ActiveUIDocument.Document;
+
+        Transaction trans = new Transaction(doc);
+        trans.Start("Lab");
+
+        List<Tuberia> tuberias = new List<Tuberia>();
+        List<UnionXYZ> uniones = new List<UnionXYZ>();
+        
+        Element pvc = new FilteredElementCollector(doc)
+            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeCurves))
+            .Where(e => e.Name.Equals("f pvc sanitaria 4"))
+            .FirstOrDefault();
+        Element systemTypes = new FilteredElementCollector(doc)
+          .WherePasses(new ElementClassFilter(typeof(PipingSystemType)))
+          .Where(e => e.Name.Equals("Hydronic Return"))
+          .FirstOrDefault();
+        
+        Group grupo = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Group)))
+            .Cast<Group>()
+            .Where(e => e.Name.Equals("sanitario"))
+            .FirstOrDefault();
+
+        List<CurveElement> guides = new FilteredElementCollector(doc)
+            .WherePasses(new CurveElementFilter(CurveElementType.ModelCurve))
+            .Cast<CurveElement>()
+            .Where(e => e.GeometryCurve.GetType() == typeof(Line) && e.GroupId == grupo.Id)
+            .ToList();
+
+        List<Level> levels = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Level)))
+            .Cast<Level>()
+            .OrderBy(e => e.Elevation)
+            .ToList();
+        
+        Element puntoSifonFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeFitting))
+            .Where(e => e.Name.Equals("punto sifon"))
+            .FirstOrDefault();
+
+        Element puntoSanitarioFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeFitting))
+            .Where(e => e.Name.Equals("punto sanitario"))
+            .FirstOrDefault();
+
+        Element puntoLavamanosFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeFitting))
+            .Where(e => e.Name.Equals("punto lavamanos"))
+            .FirstOrDefault();
+
+        Family sifonFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Family)))
+            .Cast<Family>()
+            .Where(e => e.Name.Equals("sifon"))
+            .FirstOrDefault();
+
+        FamilySymbol sifonSymbol = new FilteredElementCollector(doc)
+            .WherePasses(new FamilySymbolFilter(sifonFamily.Id))
+            .Cast<FamilySymbol>()
+            .Where(e => e.Name.Equals("sifon 3x2"))
+            .FirstOrDefault();
+
+        IList<FamilyInstance> sifones = new FilteredElementCollector(doc)
+            .WherePasses(new FamilyInstanceFilter(doc, sifonSymbol.Id))
+            .Cast<FamilyInstance>().ToList();
+
+
+        Family sanitarioFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Family)))
+            .Cast<Family>()
+            .Where(e => e.Name.Equals("sanitario fmly"))
+            .FirstOrDefault();
+
+        FamilySymbol sanitarioSymbol = new FilteredElementCollector(doc)
+            .WherePasses(new FamilySymbolFilter(sanitarioFamily.Id))
+            .Cast<FamilySymbol>()
+            .Where(e => e.Name.Equals("Snt1"))
+            .FirstOrDefault();
+
+        IList<FamilyInstance> sanitarios = new FilteredElementCollector(doc)
+            .WherePasses(new FamilyInstanceFilter(doc, sanitarioSymbol.Id))
+            .Cast<FamilyInstance>().ToList();
+        
+
+        Family lavamanosFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Family)))
+            .Cast<Family>()
+            .Where(e => e.Name.Equals("lavamanos monserrat"))
+            .FirstOrDefault();
+
+        FamilySymbol lavamanosSymbol = new FilteredElementCollector(doc)
+            .WherePasses(new FamilySymbolFilter(lavamanosFamily.Id))
+            .Cast<FamilySymbol>()
+            .Where(e => e.Name.Equals("LM1"))
+            .FirstOrDefault();
+
+        IList<FamilyInstance> lavamanos = new FilteredElementCollector(doc)
+            .WherePasses(new FamilyInstanceFilter(doc, lavamanosSymbol.Id))
+            .Cast<FamilyInstance>().ToList();
+
+        GenerarTuberias(guides, levels, tuberias);
+        CrearTubos(doc, systemTypes, pvc, tuberias);
+        GenerarUniones(tuberias, uniones);
+        CrearUniones(doc, uniones);
+        CrearPuntosACobrar(doc, systemTypes, pvc, tuberias, puntoSifonFamily, puntoSanitarioFamily, puntoLavamanosFamily, sifones, lavamanos, sanitarios);
+
         trans.Commit();
         return Result.Succeeded;
 
