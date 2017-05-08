@@ -539,6 +539,80 @@ public class RedSanitario : IExternalCommand
             }
         }
     }
+    public void CrearPuntosACobrarVentilacion(Document doc, Element systemTypes, Element pvc, List<Tuberia> tuberias,
+        Element puntoVentilacionFamily, IList<FamilyInstance> bajantes)
+    {
+        foreach (Tuberia tubo in tuberias)
+        {
+            Pipe tube = null;
+            FamilyInstance puntoACobrar = null;
+            XYZ salienteXYZ = null;
+            Connector connect = null;
+
+            if (!tubo.startConnected)
+            {
+                XYZ start = tubo.start;
+                salienteXYZ = start;
+                XYZ v = (tubo.start - tubo.end).Normalize();
+                XYZ end = start + 0.3 * v;
+                tube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, start, end);
+
+                Parameter radius = tube.LookupParameter("Diameter");
+                radius.Set(tubo.tubo.LookupParameter("Diameter").AsDouble());
+
+                ConnectorManager cmpvc1 = tubo.tubo.ConnectorManager;
+                ConnectorManager cmpvc2 = tube.ConnectorManager;
+
+                connect = cmpvc1.Lookup(0);
+                puntoACobrar = doc.Create.NewUnionFitting(cmpvc1.Lookup(0), cmpvc2.Lookup(0));
+                doc.Regenerate();
+                puntoACobrar.ChangeTypeId(puntoVentilacionFamily.Id);
+                //doc.Delete(tube.Id);
+            }
+            if (!tubo.endConnected)
+            {
+                XYZ start = tubo.end;
+                salienteXYZ = start;
+                XYZ v = (tubo.end - tubo.start).Normalize();
+                XYZ end = start + 0.3 * v;
+                tube = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, start, end);
+
+                Parameter radius = tube.LookupParameter("Diameter");
+                radius.Set(tubo.tubo.LookupParameter("Diameter").AsDouble());
+
+                ConnectorManager cmpvc1 = tubo.tubo.ConnectorManager;
+                ConnectorManager cmpvc2 = tube.ConnectorManager;
+
+                connect = cmpvc1.Lookup(1);
+                puntoACobrar = doc.Create.NewUnionFitting(cmpvc1.Lookup(1), cmpvc2.Lookup(0));
+                doc.Regenerate();
+                puntoACobrar.ChangeTypeId(puntoVentilacionFamily.Id);
+                //doc.Delete(tube.Id);
+            }
+
+            if (puntoACobrar != null)
+            {
+                double distanciaMinima = 999999;
+                FamilyInstance bajanteMinimo = null;
+                foreach (FamilyInstance bajante in bajantes)
+                {
+                    double d = ((LocationPoint)(bajante.Location)).Point.DistanceTo(salienteXYZ);
+                    if (distanciaMinima > d)
+                    {
+                        distanciaMinima = d;
+                        bajanteMinimo = bajante;
+                    }
+                }
+                double ww = UnitUtils.ConvertToInternalUnits(0.6, DisplayUnitType.DUT_METERS);
+                if (distanciaMinima < ww)
+                {
+                    doc.Delete(puntoACobrar.Id);
+                    connect.Origin = salienteXYZ;
+                    continue;
+                }
+            }
+        }
+    }
     public void CrearPuntosACobrarSanitario(Document doc, Element systemTypes, Element pvc, List<Tuberia> tuberias,
         Element puntoSifonFamily, Element puntoSanitarioFamily, Element puntoLavamanosFamily,
         IList<FamilyInstance> sifones, IList<FamilyInstance> sanitarios, IList<FamilyInstance> lavamanos,
@@ -811,6 +885,11 @@ public class RedSanitario : IExternalCommand
             .Where(e => e.Name.Equals("punto lavamanos"))
             .FirstOrDefault();
 
+        Element puntoVentilacionFamily = new FilteredElementCollector(doc)
+            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeFitting))
+            .Where(e => e.Name.Equals("punto ventilacion"))
+            .FirstOrDefault();
+
         Family sifonFamily = new FilteredElementCollector(doc)
             .WherePasses(new ElementClassFilter(typeof(Family)))
             .Cast<Family>()
@@ -904,6 +983,9 @@ public class RedSanitario : IExternalCommand
         CrearTubos(doc, ventilacionType, pvcVentilacion, tuberiasVentilacion);
         GenerarUniones(tuberiasVentilacion, unionesVentilacion);
         CrearUniones(doc, unionesVentilacion);
+        CrearPuntosACobrarVentilacion(doc, ventilacionType, pvcVentilacion, tuberiasVentilacion,
+            puntoVentilacionFamily,
+            bajantesVentilacion);
 
         trans.Commit();
         return Result.Succeeded;
