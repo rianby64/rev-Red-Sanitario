@@ -213,6 +213,17 @@ public class RedSanitario : IExternalCommand
             t2.startConnected = true;
             t3.startConnected = true;
         }
+        else if (p3end.DistanceTo(p1end) < epsilon && p3end.DistanceTo(p2end) < epsilon)
+        {
+            // s12, s21, s31
+            s11 = cmpvc1.Lookup(0); s12 = cmpvc1.Lookup(1);
+            s21 = cmpvc2.Lookup(1); s22 = cmpvc2.Lookup(0);
+            s31 = cmpvc3.Lookup(1); s32 = cmpvc3.Lookup(0);
+
+            t1.endConnected = true;
+            t2.startConnected = true;
+            t3.endConnected = true;
+        }
         else
         {
             return;
@@ -246,7 +257,7 @@ public class RedSanitario : IExternalCommand
         s31.Origin = teecm3.Origin;
         teecm3.ConnectTo(s31);
     }
-    public void GenerarTuberias(List<CurveElement> guides, List<Level> levels, List<Tuberia> tuberias)
+    public void GenerarTuberias(List<CurveElement> guides, List<Level> levels, List<Tuberia> tuberias, double offsetInMeters)
     {
         foreach (CurveElement guide in guides)
         {
@@ -267,8 +278,8 @@ public class RedSanitario : IExternalCommand
                 currentH = nextLevel.Elevation;
             }
             tuberias.Add(new Tuberia(
-                new XYZ(start.X, start.Y, start.Z - UnitUtils.ConvertToInternalUnits(0.6, DisplayUnitType.DUT_METERS)),
-                new XYZ(end.X, end.Y, end.Z - UnitUtils.ConvertToInternalUnits(0.6, DisplayUnitType.DUT_METERS)),
+                new XYZ(start.X, start.Y, start.Z - UnitUtils.ConvertToInternalUnits(offsetInMeters, DisplayUnitType.DUT_METERS)),
+                new XYZ(end.X, end.Y, end.Z - UnitUtils.ConvertToInternalUnits(offsetInMeters, DisplayUnitType.DUT_METERS)),
                 guide.LineStyle, currentLevel));
         }
 
@@ -530,7 +541,7 @@ public class RedSanitario : IExternalCommand
     }
     public void CrearPuntosACobrar(Document doc, Element systemTypes, Element pvc, List<Tuberia> tuberias,
         Element puntoSifonFamily, Element puntoSanitarioFamily, Element puntoLavamanosFamily,
-        IList<FamilyInstance> sifones, IList<FamilyInstance> lavamanos, IList<FamilyInstance> sanitarios)
+        IList<FamilyInstance> sifones, IList<FamilyInstance> sanitarios, IList<FamilyInstance> lavamanos)
     {
         foreach (Tuberia tubo in tuberias)
         {
@@ -696,29 +707,57 @@ public class RedSanitario : IExternalCommand
         Transaction trans = new Transaction(doc);
         trans.Start("Lab");
 
-        List<Tuberia> tuberias = new List<Tuberia>();
-        List<UnionXYZ> uniones = new List<UnionXYZ>();
+        List<Tuberia> tuberiasSanitarias = new List<Tuberia>();
+        List<UnionXYZ> unionesSanitarias = new List<UnionXYZ>();
         
-        Element pvc = new FilteredElementCollector(doc)
+        Element pvcSanitaria = new FilteredElementCollector(doc)
             .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeCurves))
-            .Where(e => e.Name.Equals("f pvc sanitaria 4"))
+            .Where(e => e.Name.Equals("pvc sanitaria"))
             .FirstOrDefault();
-        Element systemTypes = new FilteredElementCollector(doc)
+        Element sanitarioType = new FilteredElementCollector(doc)
           .WherePasses(new ElementClassFilter(typeof(PipingSystemType)))
-          .Where(e => e.Name.Equals("Hydronic Return"))
+          .Where(e => e.Name.Equals("Sanitario"))
           .FirstOrDefault();
-        
-        Group grupo = new FilteredElementCollector(doc)
+
+        Group grupoSanitario = new FilteredElementCollector(doc)
             .WherePasses(new ElementClassFilter(typeof(Group)))
             .Cast<Group>()
             .Where(e => e.Name.Equals("sanitario"))
             .FirstOrDefault();
 
-        List<CurveElement> guides = new FilteredElementCollector(doc)
+        List<CurveElement> guidesSanitario = new FilteredElementCollector(doc)
             .WherePasses(new CurveElementFilter(CurveElementType.ModelCurve))
             .Cast<CurveElement>()
-            .Where(e => e.GeometryCurve.GetType() == typeof(Line) && e.GroupId == grupo.Id)
+            .Where(e => e.GeometryCurve.GetType() == typeof(Line) && e.GroupId == grupoSanitario.Id)
             .ToList();
+
+
+
+        List<Tuberia> tuberiasVentilacion = new List<Tuberia>();
+        List<UnionXYZ> unionesVentilacion = new List<UnionXYZ>();
+
+        Element pvcVentilacion = new FilteredElementCollector(doc)
+            .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeCurves))
+            .Where(e => e.Name.Equals("pvc ventilacion"))
+            .FirstOrDefault();
+        Element ventilacionType = new FilteredElementCollector(doc)
+          .WherePasses(new ElementClassFilter(typeof(PipingSystemType)))
+          .Where(e => e.Name.Equals("Ventilacion"))
+          .FirstOrDefault();
+
+        Group grupoVentilacion = new FilteredElementCollector(doc)
+            .WherePasses(new ElementClassFilter(typeof(Group)))
+            .Cast<Group>()
+            .Where(e => e.Name.Equals("ventilacion"))
+            .FirstOrDefault();
+
+        List<CurveElement> guidesVentilacion = new FilteredElementCollector(doc)
+            .WherePasses(new CurveElementFilter(CurveElementType.ModelCurve))
+            .Cast<CurveElement>()
+            .Where(e => e.GeometryCurve.GetType() == typeof(Line) && e.GroupId == grupoVentilacion.Id)
+            .ToList();
+
+
 
         List<Level> levels = new FilteredElementCollector(doc)
             .WherePasses(new ElementClassFilter(typeof(Level)))
@@ -791,11 +830,19 @@ public class RedSanitario : IExternalCommand
             .WherePasses(new FamilyInstanceFilter(doc, lavamanosSymbol.Id))
             .Cast<FamilyInstance>().ToList();
 
-        GenerarTuberias(guides, levels, tuberias);
-        CrearTubos(doc, systemTypes, pvc, tuberias);
-        GenerarUniones(tuberias, uniones);
-        CrearUniones(doc, uniones);
-        CrearPuntosACobrar(doc, systemTypes, pvc, tuberias, puntoSifonFamily, puntoSanitarioFamily, puntoLavamanosFamily, sifones, lavamanos, sanitarios);
+        GenerarTuberias(guidesSanitario, levels, tuberiasSanitarias, 0.6);
+        CrearTubos(doc, sanitarioType, pvcSanitaria, tuberiasSanitarias);
+        GenerarUniones(tuberiasSanitarias, unionesSanitarias);
+        CrearUniones(doc, unionesSanitarias);
+        CrearPuntosACobrar(doc, sanitarioType, pvcSanitaria, tuberiasSanitarias,
+            puntoSifonFamily, puntoSanitarioFamily, puntoLavamanosFamily,
+            sifones, sanitarios, lavamanos);
+
+
+        GenerarTuberias(guidesVentilacion, levels, tuberiasVentilacion, 0.495);
+        CrearTubos(doc, ventilacionType, pvcVentilacion, tuberiasVentilacion);
+        GenerarUniones(tuberiasVentilacion, unionesVentilacion);
+        CrearUniones(doc, unionesVentilacion);
 
         trans.Commit();
         return Result.Succeeded;
