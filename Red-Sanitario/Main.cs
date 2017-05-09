@@ -706,28 +706,6 @@ public class RedSanitario : IExternalCommand
             if (salienteXYZ != null && salienteTube != null)
             {
                 double distanciaMinima = 999999;
-                FamilyInstance sifonMinimo = null;
-                foreach (FamilyInstance sifon in sifones)
-                {
-                    double d = ((LocationPoint)(sifon.Location)).Point.DistanceTo(salienteXYZ);
-                    if (distanciaMinima > d)
-                    {
-                        distanciaMinima = d;
-                        sifonMinimo = sifon;
-                    }
-                }
-                double ww = UnitUtils.ConvertToInternalUnits(0.3, DisplayUnitType.DUT_METERS);
-                if (distanciaMinima < ww)
-                {
-                    XYZ punto = ((LocationPoint)(sifonMinimo.Location)).Point;
-                    XYZ puntoSifon = salienteTube.ConnectorManager.Lookup(1).Origin;
-                    salienteTube.ConnectorManager.Lookup(1).Origin = new XYZ(puntoSifon.X, puntoSifon.Y, punto.Z);
-
-                    puntoACobrar.ChangeTypeId(puntoSifonFamily.Id);
-                    continue;
-                }
-
-                distanciaMinima = 999999;
                 FamilyInstance bajanteMinimo = null;
                 foreach (FamilyInstance bajante in bajantes)
                 {
@@ -738,7 +716,7 @@ public class RedSanitario : IExternalCommand
                         bajanteMinimo = bajante;
                     }
                 }
-                ww = UnitUtils.ConvertToInternalUnits(0.001, DisplayUnitType.DUT_METERS);
+                double ww = UnitUtils.ConvertToInternalUnits(0.3, DisplayUnitType.DUT_METERS);
                 if (distanciaMinima < ww)
                 {
                     doc.Delete(elbow.Id);
@@ -754,6 +732,28 @@ public class RedSanitario : IExternalCommand
                         XYZ punto = tubo.tubo.ConnectorManager.Lookup(0).Origin;
                         tubo.tubo.ConnectorManager.Lookup(0).Origin = new XYZ(salienteXYZ.X, salienteXYZ.Y, punto.Z);
                     }
+                    continue;
+                }
+
+                distanciaMinima = 999999;
+                FamilyInstance sifonMinimo = null;
+                foreach (FamilyInstance sifon in sifones)
+                {
+                    double d = ((LocationPoint)(sifon.Location)).Point.DistanceTo(salienteXYZ);
+                    if (distanciaMinima > d)
+                    {
+                        distanciaMinima = d;
+                        sifonMinimo = sifon;
+                    }
+                }
+                ww = UnitUtils.ConvertToInternalUnits(0.3, DisplayUnitType.DUT_METERS);
+                if (distanciaMinima < ww)
+                {
+                    XYZ punto = ((LocationPoint)(sifonMinimo.Location)).Point;
+                    XYZ puntoSifon = salienteTube.ConnectorManager.Lookup(1).Origin;
+                    salienteTube.ConnectorManager.Lookup(1).Origin = new XYZ(puntoSifon.X, puntoSifon.Y, punto.Z);
+
+                    puntoACobrar.ChangeTypeId(puntoSifonFamily.Id);
                     continue;
                 }
 
@@ -790,7 +790,7 @@ public class RedSanitario : IExternalCommand
                         sanitarioMinimo = sanitario;
                     }
                 }
-                ww = UnitUtils.ConvertToInternalUnits(1.0, DisplayUnitType.DUT_METERS);
+                ww = UnitUtils.ConvertToInternalUnits(0.8, DisplayUnitType.DUT_METERS);
                 if (distanciaMinima < ww)
                 {
                     XYZ punto = ((LocationPoint)(sanitarioMinimo.Location)).Point;
