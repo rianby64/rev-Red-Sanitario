@@ -805,6 +805,213 @@ public class RedSanitario : IExternalCommand
             }
         }
     }
+    public void GenerarBajantes(Document doc, Element systemTypes, Element pvc,
+        List<Tuberia> conexionBajantesSanitarias,
+        List<UnionXYZ> unionesBajantesSanitariasVerticales)
+    {
+
+        foreach (Tuberia tubo in conexionBajantesSanitarias)
+        {
+            Level level = tubo.level;
+            Tuberia tuboMasCercano1 = null;
+            Tuberia tuboMasCercano2 = null;
+            double distancia = 999999999;
+
+            Connector conector1 = null;
+            XYZ XYZconector1 = null;
+
+            Connector conector2 = null;
+            XYZ XYZconector2 = null;
+
+            Connector conector3 = null;
+            XYZ XYZconector3 = null;
+            if (!tubo.endConnected)
+            {
+                conector3 = tubo.tubo.ConnectorManager.Lookup(1);
+                XYZconector3 = conector3.Origin;
+            }
+            if (!tubo.startConnected)
+            {
+                conector3 = tubo.tubo.ConnectorManager.Lookup(0);
+                XYZconector3 = conector3.Origin;
+            }
+            foreach (Tuberia t in conexionBajantesSanitarias)
+            {
+                if (t == tubo) continue;
+                Connector c = null;
+                XYZ xyz = null;
+                if (!t.endConnected)
+                {
+                    c = t.tubo.ConnectorManager.Lookup(1);
+                    xyz = c.Origin;
+                }
+                if (!t.startConnected)
+                {
+                    c = t.tubo.ConnectorManager.Lookup(0);
+                    xyz = c.Origin;
+                }
+
+                double d = xyz.DistanceTo(XYZconector3);
+                double a = (xyz - XYZconector3).Normalize().AngleTo(XYZ.BasisZ);
+                if (distancia > d && (Math.Abs(a - Math.PI) < 0.0001 || Math.Abs(a) < 0.0001))
+                {
+                    tuboMasCercano1 = t;
+                    distancia = d;
+
+                    conector1 = c;
+                    XYZconector1 = xyz;
+                }
+            }
+
+            distancia = 999999999;
+            foreach (Tuberia t in conexionBajantesSanitarias)
+            {
+                if (t == tubo) continue;
+                if (t == tuboMasCercano1) continue;
+                Connector c = null;
+                XYZ xyz = null;
+                if (!t.endConnected)
+                {
+                    c = t.tubo.ConnectorManager.Lookup(1);
+                    xyz = c.Origin;
+                }
+                if (!t.startConnected)
+                {
+                    c = t.tubo.ConnectorManager.Lookup(0);
+                    xyz = c.Origin;
+                }
+
+                double d = xyz.DistanceTo(XYZconector3);
+                double a = (xyz - XYZconector3).Normalize().AngleTo(XYZ.BasisZ);
+                if (distancia > d && (Math.Abs(a - Math.PI) < 0.0001 || Math.Abs(a) < 0.0001))
+                {
+                    tuboMasCercano2 = t;
+                    distancia = d;
+
+                    conector2 = c;
+                    XYZconector2 = xyz;
+                }
+            }
+
+            XYZ d1 = (XYZconector3 - XYZconector1).Normalize();
+            XYZ d2 = (XYZconector3 - XYZconector2).Normalize();
+            double w = d1.AngleTo(d2);
+            if ((Math.Abs(d1.AngleTo(d2) - Math.PI) < 0.0001 || Math.Abs(d1.AngleTo(d2)) < 0.0001) && d1.Z * d2.Z < 0)
+            {
+                bool hacerTuboUp = true;
+                Pipe tubeUp = null;
+                Tuberia tubeUpTuberia = null;
+                foreach (UnionXYZ unionRevisar in unionesBajantesSanitariasVerticales)
+                {
+                    if (Math.Abs(unionRevisar.s1.end.DistanceTo(XYZconector3)) < 0.001 &&
+                        Math.Abs(unionRevisar.s1.start.DistanceTo(XYZconector1)) < 0.001)
+                    {
+                        hacerTuboUp = false;
+                        tubeUpTuberia = unionRevisar.s1;
+                        break;
+                    }
+                    if (Math.Abs(unionRevisar.s2.end.DistanceTo(XYZconector3)) < 0.001 &&
+                        Math.Abs(unionRevisar.s2.start.DistanceTo(XYZconector1)) < 0.001)
+                    {
+                        hacerTuboUp = false;
+                        tubeUpTuberia = unionRevisar.s2;
+                        break;
+                    }
+                }
+
+                UnionXYZ union = new UnionXYZ();
+                if (hacerTuboUp)
+                {
+                    tubeUp = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, XYZconector3, XYZconector1);
+                    tubeUp.LookupParameter("Diameter").Set(tubo.tubo.LookupParameter("Diameter").AsDouble());
+
+                    union.s1 = new Tuberia(XYZconector3, XYZconector1, tubo.lineStyle, tubo.level);
+                    union.s1.tubo = tubeUp;
+                }
+                else
+                {
+                    union.s1 = tubeUpTuberia;
+                }
+
+
+                bool hacerTuboDown = true;
+                Pipe tubeDown = null;
+                Tuberia tubeDownTuberia = null;
+                foreach (UnionXYZ unionRevisar in unionesBajantesSanitariasVerticales)
+                {
+                    if (Math.Abs(unionRevisar.s2.end.DistanceTo(XYZconector3)) < 0.001 &&
+                        Math.Abs(unionRevisar.s2.start.DistanceTo(XYZconector2)) < 0.001)
+                    {
+                        hacerTuboDown = false;
+                        tubeDownTuberia = unionRevisar.s2;
+                        break;
+                    }
+                    if (Math.Abs(unionRevisar.s1.end.DistanceTo(XYZconector2)) < 0.001 &&
+                        Math.Abs(unionRevisar.s1.start.DistanceTo(XYZconector3)) < 0.001)
+                    {
+                        hacerTuboDown = false;
+                        tubeDownTuberia = unionRevisar.s1;
+                        break;
+                    }
+                }
+
+                if (hacerTuboDown)
+                {
+                    tubeDown = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, XYZconector3, XYZconector2);
+                    tubeDown.LookupParameter("Diameter").Set(tubo.tubo.LookupParameter("Diameter").AsDouble());
+
+                    union.s2 = new Tuberia(XYZconector3, XYZconector2, tubo.lineStyle, tubo.level);
+                    union.s2.tubo = tubeDown;
+                }
+                else
+                {
+                    union.s2 = tubeDownTuberia;
+                }
+
+                union.s3 = tubo;
+                unionesBajantesSanitariasVerticales.Add(union);
+            }
+            else
+            {
+                bool hacerTubo = true;
+                Pipe tubeUp = null;
+                Tuberia tubeUpTuberia = null;
+                foreach (UnionXYZ unionRevisar in unionesBajantesSanitariasVerticales)
+                {
+                    if (Math.Abs(unionRevisar.s1.end.DistanceTo(XYZconector1)) < 0.001 &&
+                        Math.Abs(unionRevisar.s1.start.DistanceTo(XYZconector3)) < 0.001)
+                    {
+                        hacerTubo = false;
+                        tubeUpTuberia = unionRevisar.s1;
+                        break;
+                    }
+                    if (Math.Abs(unionRevisar.s2.end.DistanceTo(XYZconector3)) < 0.001 &&
+                        Math.Abs(unionRevisar.s2.start.DistanceTo(XYZconector1)) < 0.001)
+                    {
+                        hacerTubo = false;
+                        tubeUpTuberia = unionRevisar.s2;
+                        break;
+                    }
+                }
+                UnionXYZ union = new UnionXYZ();
+                if (hacerTubo)
+                {
+                    tubeUp = Pipe.Create(doc, systemTypes.Id, pvc.Id, tubo.level.Id, XYZconector3, XYZconector1);
+                    tubeUp.LookupParameter("Diameter").Set(tubo.tubo.LookupParameter("Diameter").AsDouble());
+
+                    union.s1 = new Tuberia(XYZconector3, XYZconector1, tubo.lineStyle, tubo.level);
+                    union.s1.tubo = tubeUp;
+                }
+                else
+                {
+                    union.s1 = tubeUpTuberia;
+                }
+
+                union.s2 = tubo;
+                unionesBajantesSanitariasVerticales.Add(union);
+            }
+        }
+    }
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
         //Get application and document objects
@@ -814,7 +1021,8 @@ public class RedSanitario : IExternalCommand
         List<Tuberia> tuberiasSanitarias = new List<Tuberia>();
         List<UnionXYZ> unionesSanitarias = new List<UnionXYZ>();
         List<Tuberia> conexionBajantesSanitarias = new List<Tuberia>();
-        
+        List<UnionXYZ> unionesBajantesSanitariasVerticales = new List<UnionXYZ>();
+
         Element pvcSanitaria = new FilteredElementCollector(doc)
             .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeCurves))
             .Where(e => e.Name.Equals("pvc sanitaria"))
@@ -841,6 +1049,7 @@ public class RedSanitario : IExternalCommand
         List<Tuberia> tuberiasVentilacion = new List<Tuberia>();
         List<UnionXYZ> unionesVentilacion = new List<UnionXYZ>();
         List<Tuberia> conexionBajantesVentilacion = new List<Tuberia>();
+        List<UnionXYZ> unionesBajantesVentilacionVerticales = new List<UnionXYZ>();
 
         Element pvcVentilacion = new FilteredElementCollector(doc)
             .WherePasses(new ElementCategoryFilter(BuiltInCategory.OST_PipeCurves))
@@ -992,211 +1201,11 @@ public class RedSanitario : IExternalCommand
             puntoVentilacionFamily,
             bajantesVentilacion, conexionBajantesVentilacion);
         
-        List<UnionXYZ> unionesBajantesSanitariasVerticales = new List<UnionXYZ>();
-        foreach (Tuberia tubo in conexionBajantesSanitarias)
-        {
-            Level level = tubo.level;
-            Tuberia tuboMasCercano1 = null;
-            Tuberia tuboMasCercano2 = null;
-            double distancia = 999999999;
-
-            Connector conector1 = null;
-            XYZ XYZconector1 = null;
-
-            Connector conector2 = null;
-            XYZ XYZconector2 = null;
-
-            Connector conector3 = null;
-            XYZ XYZconector3 = null;
-            if (!tubo.endConnected)
-            {
-                conector3 = tubo.tubo.ConnectorManager.Lookup(1);
-                XYZconector3 = conector3.Origin;
-            }
-            if (!tubo.startConnected)
-            {
-                conector3 = tubo.tubo.ConnectorManager.Lookup(0);
-                XYZconector3 = conector3.Origin;
-            }
-            foreach (Tuberia t in conexionBajantesSanitarias)
-            {
-                if (t == tubo) continue;
-                Connector c = null;
-                XYZ xyz = null;
-                if (!t.endConnected)
-                {
-                    c = t.tubo.ConnectorManager.Lookup(1);
-                    xyz = c.Origin;
-                }
-                if (!t.startConnected)
-                {
-                    c = t.tubo.ConnectorManager.Lookup(0);
-                    xyz = c.Origin;
-                }
-
-                double d = xyz.DistanceTo(XYZconector3);
-                double a = (xyz - XYZconector3).Normalize().AngleTo(XYZ.BasisZ);
-                if (distancia > d && (Math.Abs(a - Math.PI) < 0.0001 || Math.Abs(a) < 0.0001))
-                {
-                    tuboMasCercano1 = t;
-                    distancia = d;
-
-                    conector1 = c;
-                    XYZconector1 = xyz;
-                }
-            }
-
-            distancia = 999999999;
-            foreach (Tuberia t in conexionBajantesSanitarias)
-            {
-                if (t == tubo) continue;
-                if (t == tuboMasCercano1) continue;
-                Connector c = null;
-                XYZ xyz = null;
-                if (!t.endConnected)
-                {
-                    c = t.tubo.ConnectorManager.Lookup(1);
-                    xyz = c.Origin;
-                }
-                if (!t.startConnected)
-                {
-                    c = t.tubo.ConnectorManager.Lookup(0);
-                    xyz = c.Origin;
-                }
-
-                double d = xyz.DistanceTo(XYZconector3);
-                double a = (xyz - XYZconector3).Normalize().AngleTo(XYZ.BasisZ);
-                if (distancia > d && (Math.Abs(a - Math.PI) < 0.0001 || Math.Abs(a) < 0.0001))
-                {
-                    tuboMasCercano2 = t;
-                    distancia = d;
-
-                    conector2 = c;
-                    XYZconector2 = xyz;
-                }
-            }
-            
-            XYZ d1 = (XYZconector3 - XYZconector1).Normalize();
-            XYZ d2 = (XYZconector3 - XYZconector2).Normalize();
-            double w = d1.AngleTo(d2);
-            if ((Math.Abs(d1.AngleTo(d2) - Math.PI) < 0.0001 || Math.Abs(d1.AngleTo(d2)) < 0.0001) && d1.Z * d2.Z < 0)
-            {
-                bool hacerTuboUp = true;
-                Pipe tubeUp = null;
-                Tuberia tubeUpTuberia = null;
-                foreach (UnionXYZ unionRevisar in unionesBajantesSanitariasVerticales)
-                {
-                    if (Math.Abs(unionRevisar.s1.end.DistanceTo(XYZconector3)) < 0.001 &&
-                        Math.Abs(unionRevisar.s1.start.DistanceTo(XYZconector1)) < 0.001)
-                    {
-                        hacerTuboUp = false;
-                        tubeUpTuberia = unionRevisar.s1;
-                        break;
-                    }
-                    if (Math.Abs(unionRevisar.s2.end.DistanceTo(XYZconector3)) < 0.001 &&
-                        Math.Abs(unionRevisar.s2.start.DistanceTo(XYZconector1)) < 0.001)
-                    {
-                        hacerTuboUp = false;
-                        tubeUpTuberia = unionRevisar.s2;
-                        break;
-                    }
-                }
-
-                UnionXYZ union = new UnionXYZ();
-                if (hacerTuboUp)
-                {
-                    tubeUp = Pipe.Create(doc, sanitarioType.Id, pvcSanitaria.Id, tubo.level.Id, XYZconector3, XYZconector1);
-                    tubeUp.LookupParameter("Diameter").Set(tubo.tubo.LookupParameter("Diameter").AsDouble());
-
-                    union.s1 = new Tuberia(XYZconector3, XYZconector1, tubo.lineStyle, tubo.level);
-                    union.s1.tubo = tubeUp;
-                }
-                else
-                {
-                    union.s1 = tubeUpTuberia;
-                }
-
-
-                bool hacerTuboDown = true;
-                Pipe tubeDown = null;
-                Tuberia tubeDownTuberia = null;
-                foreach (UnionXYZ unionRevisar in unionesBajantesSanitariasVerticales)
-                {
-                    if (Math.Abs(unionRevisar.s2.end.DistanceTo(XYZconector3)) < 0.001 &&
-                        Math.Abs(unionRevisar.s2.start.DistanceTo(XYZconector2)) < 0.001)
-                    {
-                        hacerTuboDown = false;
-                        tubeDownTuberia = unionRevisar.s2;
-                        break;
-                    }
-                    if (Math.Abs(unionRevisar.s1.end.DistanceTo(XYZconector2)) < 0.001 &&
-                        Math.Abs(unionRevisar.s1.start.DistanceTo(XYZconector3)) < 0.001)
-                    {
-                        hacerTuboDown = false;
-                        tubeDownTuberia = unionRevisar.s1;
-                        break;
-                    }
-                }
-                
-                if (hacerTuboDown)
-                {
-                    tubeDown = Pipe.Create(doc, sanitarioType.Id, pvcSanitaria.Id, tubo.level.Id, XYZconector3, XYZconector2);
-                    tubeDown.LookupParameter("Diameter").Set(tubo.tubo.LookupParameter("Diameter").AsDouble());
-
-                    union.s2 = new Tuberia(XYZconector3, XYZconector2, tubo.lineStyle, tubo.level);
-                    union.s2.tubo = tubeDown;
-                }
-                else
-                {
-                    union.s2 = tubeDownTuberia;
-                }
-                
-                union.s3 = tubo;
-                unionesBajantesSanitariasVerticales.Add(union);
-            }
-            else
-            {
-                bool hacerTubo = true;
-                Pipe tubeUp = null;
-                Tuberia tubeUpTuberia = null;
-                foreach (UnionXYZ unionRevisar in unionesBajantesSanitariasVerticales)
-                {
-                    if (Math.Abs(unionRevisar.s1.end.DistanceTo(XYZconector1)) < 0.001 &&
-                        Math.Abs(unionRevisar.s1.start.DistanceTo(XYZconector3)) < 0.001)
-                    {
-                        hacerTubo = false;
-                        tubeUpTuberia = unionRevisar.s1;
-                        break;
-                    }
-                    if (Math.Abs(unionRevisar.s2.end.DistanceTo(XYZconector3)) < 0.001 &&
-                        Math.Abs(unionRevisar.s2.start.DistanceTo(XYZconector1)) < 0.001)
-                    {
-                        hacerTubo = false;
-                        tubeUpTuberia = unionRevisar.s2;
-                        break;
-                    }
-                }
-                UnionXYZ union = new UnionXYZ();
-                if (hacerTubo)
-                {
-                    tubeUp = Pipe.Create(doc, sanitarioType.Id, pvcSanitaria.Id, tubo.level.Id, XYZconector3, XYZconector1);
-                    tubeUp.LookupParameter("Diameter").Set(tubo.tubo.LookupParameter("Diameter").AsDouble());
-                    
-                    union.s1 = new Tuberia(XYZconector3, XYZconector1, tubo.lineStyle, tubo.level);
-                    union.s1.tubo = tubeUp;
-                }
-                else
-                {
-                    union.s1 = tubeUpTuberia;
-                }
-
-                union.s2 = tubo;
-                unionesBajantesSanitariasVerticales.Add(union);
-            }
-        }
-
-
+        GenerarBajantes(doc, sanitarioType, pvcSanitaria, conexionBajantesSanitarias, unionesBajantesSanitariasVerticales);
         CrearUniones(doc, unionesBajantesSanitariasVerticales);
+
+        GenerarBajantes(doc, ventilacionType, pvcVentilacion, conexionBajantesVentilacion, unionesBajantesVentilacionVerticales);
+        CrearUniones(doc, unionesBajantesVentilacionVerticales);
 
         trans.Commit();
         return Result.Succeeded;
