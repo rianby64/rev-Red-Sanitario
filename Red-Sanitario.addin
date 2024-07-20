@@ -2,7 +2,7 @@
 <RevitAddIns>
   <AddIn Type="Command">    
     <Assembly>
-      C:\GitHub\Red-Sanitario\Red-Sanitario.dll
+      C:\git\Red-Sanitario\Red-Sanitario.dll
     </Assembly>
     <ClientId>a6d5f51e-22b4-11e7-93ae-92361f002671</ClientId>
     <FullClassName>RedSanitario</FullClassName>
